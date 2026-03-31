@@ -1,0 +1,4 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Tue Mar 31 10:17:26 CST 2026
+@default-maven-nexus-http\://localhost\:8081/repository/maven-public/.lastUpdated=1774923446296
+http\://localhost\:8081/repository/maven-public/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:4.0.5 from/to maven-nexus (http\://localhost\:8081/repository/maven-public)\: Blocked mirror for repositories\: [central (https\://repo.maven.apache.org/maven2, default, releases)]
