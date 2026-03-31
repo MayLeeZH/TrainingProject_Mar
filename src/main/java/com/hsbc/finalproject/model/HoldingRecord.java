@@ -27,7 +27,7 @@ public class HoldingRecord {
     @JsonIgnoreProperties("holdingRecords")
     private User user;
 
-    @OneToMany(mappedBy = "holdingRecord")
+    @OneToMany(mappedBy = "holdingRecord", cascade = CascadeType.ALL)
     @JsonIgnoreProperties("holdingRecord")
     private List<TransactionRecord> transactionRecords;
 
