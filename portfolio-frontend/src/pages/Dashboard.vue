@@ -9,8 +9,14 @@
       </div>
 
       <nav class="nav-menu">
-        <a href="#" class="nav-item active"><span class="text-truncate">Dashboard</span></a>
-        <a href="#" class="nav-item"><span class="text-truncate">Holdings</span></a>
+        <router-link to="/" class="nav-item" active-class="active" exact>
+          <span class="text-truncate">Dashboard</span>
+        </router-link>
+        
+        <router-link to="/holdings" class="nav-item" active-class="active">
+          <span class="text-truncate">Holdings</span>
+        </router-link>
+        
         <a href="#" class="nav-item"><span class="text-truncate">Transactions</span></a>
         <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
       </nav>
@@ -147,18 +153,18 @@ const fetchLiveHoldingsData = async () => {
       // 调用 API 获取最新报价
       const data = await getStockQuote(asset.apiSymbol);
 
-      // Finnhub 返回的数据中，'c' 代表当前最新价格 (Current Price)
+      // Finnhub 返回的数据中，'c' 代表当前最新价格
       if (data && data.c) { 
         const livePrice = data.c;
 
-        // 1. 更新现价 (自动格式化为带逗号的美元格式)
+        // 1. 更新现价
         asset.price = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(livePrice);
 
-        // 2. 计算实时市值 = 现价 * 持仓量
+        // 2. 市值 = 现价 * 持仓量
         const liveMarketValue = livePrice * asset.quantity;
         asset.marketValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(liveMarketValue);
 
-        // 3. 计算真实盈亏百分比 = (现价 - 成本价) / 成本价 * 100
+        // 3. 盈亏百分比 = (现价 - 成本价) / 成本价 * 100
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2)); // 保留两位小数
       }
