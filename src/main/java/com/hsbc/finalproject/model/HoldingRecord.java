@@ -24,11 +24,13 @@ public class HoldingRecord {
     private String assetType;
 
     @ManyToOne
-    @JsonIgnoreProperties("holdingRecords")
+    // 防止 HoldingRecord -> User -> HoldingRecord/TransactionRecord 的递归序列化
+    @JsonIgnoreProperties({"holdingRecords", "transactionRecords"})
     private User user;
 
     @OneToMany(mappedBy = "holdingRecord", cascade = CascadeType.ALL)
-    @JsonIgnoreProperties("holdingRecord")
+    // 当返回 HoldingRecord 时，避免继续序列化回到 HoldingRecord 或把 user 的完整图拉出来
+    @JsonIgnoreProperties({"holdingRecord", "user"})
     private List<TransactionRecord> transactionRecords;
 
 }
