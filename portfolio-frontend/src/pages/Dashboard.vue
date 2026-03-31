@@ -5,17 +5,14 @@
 
     <aside class="glass-sidebar animate-fade-in">
       <div class="brand">
-        <svg viewBox="0 0 24 24" class="brand-logo" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-        </svg>
         <h2 class="brand-title">PRO-GRAM</h2>
       </div>
 
       <nav class="nav-menu">
-        <a href="#" class="nav-item active"><span class="icon">􀏜</span> <span class="text-truncate">Dashboard</span></a>
-        <a href="#" class="nav-item"><span class="icon">􀈑</span> <span class="text-truncate">Holdings</span></a>
-        <a href="#" class="nav-item"><span class="icon">􀒡</span> <span class="text-truncate">Transactions</span></a>
-        <a href="#" class="nav-item"><span class="icon">􀙙</span> <span class="text-truncate">Reports</span></a>
+        <a href="#" class="nav-item active"><span class="text-truncate">Dashboard</span></a>
+        <a href="#" class="nav-item"><span class="text-truncate">Holdings</span></a>
+        <a href="#" class="nav-item"><span class="text-truncate">Transactions</span></a>
+        <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
       </nav>
 
       <div class="user-profile">
@@ -35,7 +32,7 @@
           <p class="datetime text-truncate">Tuesday, March 31</p>
         </div>
         <div class="header-actions">
-          <button class="apple-btn btn-secondary text-truncate">􀅼 New Trade</button>
+          <button class="apple-btn btn-secondary text-truncate">New Trade</button>
           <button class="apple-btn btn-primary text-truncate">Buy / Sell</button>
         </div>
       </header>
@@ -101,7 +98,6 @@
               <tr v-for="asset in mockHoldings" :key="asset.ticker" class="table-row">
                 <td>
                   <div class="asset-identity">
-                    <div class="ticker-icon">{{ asset.ticker.charAt(0) }}</div>
                     <div class="asset-text-container">
                       <div class="asset-name">{{ asset.ticker }}</div>
                       <div class="asset-desc">{{ asset.name }}</div>
@@ -121,19 +117,64 @@
             </tbody>
           </table>
         </div>
-      </div> </main>
+      </div>
+
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+// 引入我们之前写好的 Finnhub API 服务
+import { getStockQuote } from '../apis/finnhubService.js';
 
+// 我们重构了数据源：增加了 costPrice (持仓成本价) 和 apiSymbol (用于请求API的精准代码)
 const mockHoldings = ref([
-  { ticker: 'VOO', name: 'Vanguard S&P 500 ETF', type: 'Equity', quantity: '400', price: '$485.20', marketValue: '$194,080', pnl: 10.3 },
-  { ticker: 'AAPL', name: 'Apple Inc.', type: 'Equity', quantity: '200', price: '$189.00', marketValue: '$37,800', pnl: 9.9 },
-  { ticker: 'BTC', name: 'Bitcoin', type: 'Crypto', quantity: '0.5', price: '$62,400.00', marketValue: '$31,200', pnl: 7.6 },
-  { ticker: 'US05Y', name: '5-Year Treasury Bond', type: 'Bond', quantity: '500', price: '$98.80', marketValue: '$49,400', pnl: -1.2 },
+  { ticker: 'VOO', apiSymbol: 'VOO', name: 'Vanguard S&P 500 ETF', type: 'Equity', quantity: 400, costPrice: 440.00, price: 'Loading...', marketValue: '--', pnl: 0 },
+  { ticker: 'AAPL', apiSymbol: 'AAPL', name: 'Apple Inc.', type: 'Equity', quantity: 200, costPrice: 172.00, price: 'Loading...', marketValue: '--', pnl: 0 },
+  // Finnhub 请求加密货币需要加前缀，比如 BINANCE:
+  { ticker: 'BTC', apiSymbol: 'BINANCE:BTCUSDT', name: 'Bitcoin', type: 'Crypto', quantity: 0.5, costPrice: 58000.00, price: 'Loading...', marketValue: '--', pnl: 0 },
+  // 免费API通常不包含债券数据，这里我们用 'STATIC' 标记让它保持静态展示
+  { ticker: 'US05Y', apiSymbol: 'STATIC', name: '5-Year Treasury Bond', type: 'Bond', quantity: 500, costPrice: 100.00, price: '$98.80', marketValue: '$49,400.00', pnl: -1.2 },
 ]);
+
+// 获取实时数据的核心函数
+const fetchLiveHoldingsData = async () => {
+  for (let asset of mockHoldings.value) {
+    if (asset.apiSymbol === 'STATIC') continue;
+
+    try {
+      // 调用 API 获取最新报价
+      const data = await getStockQuote(asset.apiSymbol);
+
+      // Finnhub 返回的数据中，'c' 代表当前最新价格 (Current Price)
+      if (data && data.c) { 
+        const livePrice = data.c;
+
+        // 1. 更新现价 (自动格式化为带逗号的美元格式)
+        asset.price = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(livePrice);
+
+        // 2. 计算实时市值 = 现价 * 持仓量
+        const liveMarketValue = livePrice * asset.quantity;
+        asset.marketValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(liveMarketValue);
+
+        // 3. 计算真实盈亏百分比 = (现价 - 成本价) / 成本价 * 100
+        const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
+        asset.pnl = parseFloat(returnPct.toFixed(2)); // 保留两位小数
+      }
+    } catch (error) {
+      console.error(`Failed to fetch live data for ${asset.ticker}:`, error);
+      asset.price = 'Error';
+    }
+  }
+};
+
+// 当页面加载完成时，立刻触发数据抓取
+onMounted(() => {
+  fetchLiveHoldingsData();
+  
+  setInterval(fetchLiveHoldingsData, 300000); 
+});
 </script>
 
 <style scoped>
@@ -201,7 +242,7 @@ const mockHoldings = ref([
   padding-left: 0.5rem;
 }
 
-.brand-logo { width: 32px; height: 32px; color: #fff; flex-shrink: 0; }
+/* 移除了图标相关的样式 */
 .brand-title { 
   font-size: clamp(1.1rem, 1.5vw, 1.4rem); 
   font-weight: 700; 
@@ -222,9 +263,12 @@ const mockHoldings = ref([
   font-weight: 500;
   font-size: clamp(0.9rem, 1vw, 0.95rem);
   transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  /* 确保文字左对齐 */
+  text-align: left;
+  justify-content: flex-start;
 }
 
-.nav-item .icon { margin-right: 12px; font-size: 1.2rem; opacity: 0.8; flex-shrink: 0;}
+/* 移除了导航项中的图标样式 */
 .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
 .nav-item.active { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
@@ -367,6 +411,7 @@ const mockHoldings = ref([
   padding: 0 1.5rem 1rem 1.5rem; 
   border-bottom: 1px solid rgba(255,255,255,0.08); 
   white-space: nowrap; 
+  text-align: left
 }
 
 .apple-table td { 
@@ -374,7 +419,9 @@ const mockHoldings = ref([
   border-bottom: 1px solid rgba(255,255,255,0.04); 
   vertical-align: middle; 
   white-space: nowrap; 
+  text-align: left
 }
+.apple-table .right { text-align: right; }
 
 .apple-table th:first-child, .apple-table td:first-child { padding-left: 0; }
 .apple-table th:last-child, .apple-table td:last-child { padding-right: 0; }
@@ -385,9 +432,19 @@ const mockHoldings = ref([
 .apple-table .right { text-align: right; }
 .font-medium { font-weight: 500; }
 
-.asset-identity { display: flex; align-items: center; gap: 1rem; }
-.ticker-icon { width: 40px; height: 40px; background: linear-gradient(135deg, #3a3a3c, #1c1c1e); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;}
-.asset-text-container { display: flex; flex-direction: column; }
+.asset-identity { 
+  display: flex; 
+  align-items: center; 
+  justify-content: flex-start; /* 强制整个资产块靠左容器边缘 */
+  gap: 1rem; 
+}
+
+.asset-text-container { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: flex-start; /* 核心：强制上下两行文字以左侧为基准对齐 */
+  text-align: left; /* 强制文本本身左对齐 */
+}
 .asset-name { font-weight: 600; font-size: clamp(0.95rem, 1vw, 1.05rem); }
 .asset-desc { font-size: 0.85rem; color: #a1a1a6; margin-top: 0.2rem; }
 
