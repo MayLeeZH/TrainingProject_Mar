@@ -1,6 +1,6 @@
-package com.hsbc.finalproject.Service.Impl;
+package com.hsbc.finalproject.service.Impl;
 
-import com.hsbc.finalproject.Service.TransactionService;
+import com.hsbc.finalproject.service.TransactionService;
 import com.hsbc.finalproject.common.ApiResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.model.TransactionRecord;
@@ -10,8 +10,6 @@ import com.hsbc.finalproject.repository.HoldingRecordRepository;
 import com.hsbc.finalproject.repository.TransactionRecordRepository;
 import com.hsbc.finalproject.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

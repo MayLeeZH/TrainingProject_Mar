@@ -1,9 +1,8 @@
-package com.hsbc.finalproject.Service;
+package com.hsbc.finalproject.service;
 
 
 import com.hsbc.finalproject.common.ApiResponse;
 import com.hsbc.finalproject.model.TransactionRecord;
-import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 

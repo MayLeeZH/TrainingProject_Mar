@@ -1,10 +1,9 @@
-package com.hsbc.finalproject.Controller;
+package com.hsbc.finalproject.controller;
 
-import com.hsbc.finalproject.Service.TransactionService;
+import com.hsbc.finalproject.service.TransactionService;
 import com.hsbc.finalproject.common.ApiResponse;
 import com.hsbc.finalproject.model.TransactionRecord;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
