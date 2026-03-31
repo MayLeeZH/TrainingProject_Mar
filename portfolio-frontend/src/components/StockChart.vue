@@ -2,52 +2,56 @@
   <div ref="chartRef" class="stock-chart"></div>
 </template>
 
+<script>
+// ==========================================
+// 【终极修复】：普通 script 标签
+// 这里的代码在整个应用运行期间只会执行一次。
+// 这个缓存对象现在是“金刚不坏之身”，不会随着图表的收起而销毁！
+// ==========================================
+const globalChartDataCache = {};
+</script>
+
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
-// 引入我们刚刚写好的获取真实历史数据的 API
 import { getStockHistoricalData } from '../apis/finnhubService.js';
 
 const props = defineProps({
   ticker: String,
-  apiSymbol: String, // 接收父组件传来的精准 API 请求代码
+  apiSymbol: String, 
   pnl: Number
 });
 
 const chartRef = ref(null);
 let chartInstance = null;
-const chartDataCache = {}; // 依然保留全局缓存，防止重复浪费网络请求
 
 const getChartColor = () => {
   return props.pnl >= 0 ? '#30d158' : '#ff453a'; 
 };
 
 // ==========================================
-// 获取或生成图表数据 (混合模式)
+// 获取或生成图表数据 (使用全局缓存)
 // ==========================================
 const fetchChartData = async () => {
-  // 1. 检查缓存
-  if (chartDataCache[props.ticker]) {
-    return chartDataCache[props.ticker];
+  // 1. 检查真正的全局缓存
+  if (globalChartDataCache[props.ticker]) {
+    return globalChartDataCache[props.ticker];
   }
 
   let finalData = [];
 
-  // 2. 如果是静态国债 (我们代码里标记了 'STATIC')，则依然使用平缓的模拟数据
   if (props.apiSymbol === 'STATIC') {
     let basePrice = 100;
     for (let i = 0; i < 30; i++) {
-      basePrice += (Math.random() - 0.5) * 0.5; // 国债波动极小
+      basePrice += (Math.random() - 0.5) * 0.5;
       finalData.push(basePrice.toFixed(2));
     }
   } else {
-    // 3. 核心：向 Finnhub 发起真实网络请求！
     const realData = await getStockHistoricalData(props.apiSymbol, 30);
     
     if (realData && realData.length > 0) {
-      finalData = realData; // 成功拿到真实收盘价数组！
+      finalData = realData; 
     } else {
-      // 容错机制：如果网络卡顿或 API 额度超限，降级使用模拟数据保证界面不崩溃
       let fallbackPrice = Math.random() * 100 + 50;
       for (let i = 0; i < 30; i++) {
         fallbackPrice += (Math.random() - 0.5) * 5;
@@ -56,8 +60,8 @@ const fetchChartData = async () => {
     }
   }
 
-  // 4. 存入缓存
-  chartDataCache[props.ticker] = finalData;
+  // 2. 把数据存入全局缓存
+  globalChartDataCache[props.ticker] = finalData;
   return finalData;
 };
 
@@ -70,21 +74,18 @@ const initChart = async () => {
   chartInstance = echarts.init(chartRef.value);
   const color = getChartColor();
 
-  // 开启优雅的 Apple 风格深色加载动画
   chartInstance.showLoading('default', {
     text: '',
     color: color,
     textColor: '#fff',
-    maskColor: 'rgba(0, 0, 0, 0)', // 透明遮罩
+    maskColor: 'rgba(0, 0, 0, 0)',
     zlevel: 0,
     lineWidth: 3,
     spinnerRadius: 10
   });
 
-  // 等待真实数据返回
   const actualData = await fetchChartData();
   
-  // 数据回来后，关闭加载动画
   chartInstance.hideLoading();
 
   const option = {
@@ -104,7 +105,7 @@ const initChart = async () => {
     },
     yAxis: {
       type: 'value',
-      scale: true, // 核心：让 Y 轴根据真实数据的最大最小值自动缩放，显示出波动的真实感
+      scale: true,
       show: false,
       splitLine: { show: false }
     },
@@ -113,7 +114,7 @@ const initChart = async () => {
         name: 'Close Price',
         type: 'line',
         data: actualData,
-        smooth: 0.2, // 真实数据不需要过度平滑，保留一点真实的折线感
+        smooth: 0.2, 
         symbol: 'none', 
         lineStyle: { color: color, width: 2.5 },
         areaStyle: {

@@ -17,7 +17,10 @@
           <span class="text-truncate">Holdings</span>
         </router-link>
         
-        <a href="#" class="nav-item"><span class="text-truncate">Transactions</span></a>
+        <router-link to="/transactions" class="nav-item" active-class="active">
+          <span class="text-truncate">Transactions</span>
+        </router-link>
+        
         <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
       </nav>
 
@@ -34,31 +37,28 @@
       
       <header class="top-header animate-fade-in delay-1">
         <div class="header-titles">
-          <h1 class="page-title text-truncate">Portfolio Holdings</h1>
-          <p class="datetime text-truncate">All Accounts • USD</p>
+          <h1 class="page-title text-truncate">Detailed Positions</h1>
+          <p class="datetime text-truncate">Your complete asset breakdown</p>
         </div>
         <div class="header-actions">
-          <button class="apple-btn btn-secondary text-truncate">Export CSV</button>
-          <button class="apple-btn btn-primary text-truncate">Add Position</button>
+          <button class="apple-btn btn-primary global-add-btn" @click="isAddModalOpen = true">
+            + Add Transaction
+          </button>
         </div>
       </header>
 
       <div class="glass-card table-card animate-fade-in delay-2">
-        <div class="card-header">
-          <h3 class="text-truncate">Detailed Positions</h3>
-        </div>
-        
         <div class="table-responsive">
           <table class="apple-table">
             <thead>
               <tr>
                 <th class="col-asset">Asset</th>
-                <th class="right col-num">Shares</th>
-                <th class="right col-num">Avg Cost</th>
-                <th class="right col-num">Price</th>
+                <th class="right col-qty">Shares</th>
+                <th class="right col-cost">Avg Cost</th>
+                <th class="right col-price">Price</th>
                 <th class="right col-value">Market Value</th>
                 <th class="right col-return">Total Return</th>
-                <th class="center col-bar">Performance</th>
+                <th class="center col-chart">Performance</th>
               </tr>
             </thead>
             <tbody>
@@ -104,12 +104,13 @@
 
                 <tr v-if="expandedRow === asset.ticker" class="expanded-chart-row">
                   <td colspan="7">
-                    <div class="expanded-content animate-fade-in">
+                    <div class="expanded-content animate-fade-in-fast">
                       <div class="expanded-header">
-                        <h4>{{ asset.ticker }} trend</h4>
+                        <h4>{{ asset.ticker }} Trend</h4>
+                        <button class="apple-link" @click.stop="toggleRow(asset.ticker)">Close ✕</button>
                       </div>
                       
-                     <div class="real-chart-container">
+                      <div class="real-chart-container">
                         <StockChart :ticker="asset.ticker" :apiSymbol="asset.apiSymbol" :pnl="asset.pnl" />
                       </div>
                     </div>
@@ -122,6 +123,11 @@
         </div>
       </div>
 
+      <AddTransactionModal 
+        v-model="isAddModalOpen" 
+        @submit="handleNewTransaction" 
+      />
+
     </main>
   </div>
 </template>
@@ -129,21 +135,25 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { getStockQuote } from '../apis/finnhubService.js';
-
 import StockChart from '../components/StockChart.vue';
-// 1. 展开行 逻辑
+import AddTransactionModal from '../components/AddTransactionModal.vue';
+
+// ==========================================
+// 状态管理
+// ==========================================
+const isAddModalOpen = ref(false);
 const expandedRow = ref(null);
 
 const toggleRow = (ticker) => {
   if (expandedRow.value === ticker) {
-    expandedRow.value = null; // 收起
+    expandedRow.value = null; 
   } else {
-    expandedRow.value = ticker; // 展开
+    expandedRow.value = ticker; 
   }
 };
 
 // ==========================================
-// 2. 核心数据源 (包含 API Symbol 和 成本价)
+// 核心数据源
 // ==========================================
 const mockHoldings = ref([
   { ticker: 'NVDA', apiSymbol: 'NVDA', name: 'NVIDIA Corp.', quantity: 150, costPrice: 420.00, cost: '$420.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
@@ -154,12 +164,11 @@ const mockHoldings = ref([
   { ticker: 'SNOW', apiSymbol: 'SNOW', name: 'Snowflake Inc.', quantity: 50, costPrice: 210.00, cost: '$210.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
 ]);
 
-// 格式化工具
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const numFormatter = new Intl.NumberFormat('en-US');
 
 // ==========================================
-// 3. 实时 API 数据抓取逻辑
+// API 数据抓取与处理
 // ==========================================
 const fetchLiveHoldingsData = async () => {
   for (let asset of mockHoldings.value) {
@@ -170,17 +179,13 @@ const fetchLiveHoldingsData = async () => {
       
       if (data && data.c) {
         const livePrice = data.c;
-
-        // 更新价格和市值
         asset.price = usdFormatter.format(livePrice);
         const liveMarketValue = livePrice * asset.quantity;
         asset.marketValue = usdFormatter.format(liveMarketValue);
 
-        // 计算盈亏百分比
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2));
 
-        // 计算盈亏绝对金额
         const dollarDiff = (livePrice - asset.costPrice) * asset.quantity;
         asset.pnlDollar = numFormatter.format(Math.abs(dollarDiff).toFixed(2)); 
       }
@@ -191,13 +196,18 @@ const fetchLiveHoldingsData = async () => {
   }
 };
 
-// 页面加载时请求数据
 onMounted(() => {
   fetchLiveHoldingsData();
 });
 
+// 处理弹窗提交的新数据
+const handleNewTransaction = (txnData) => {
+  console.log("New Transaction submitted from Holdings page:", txnData);
+  // 在真实应用中，你可以在这里根据买入/卖出，更新对应资产的持仓数量和成本价
+};
+
 // ==========================================
-// 4. 微型柱状图 (Sparkline) 计算逻辑
+// 微型柱状图逻辑
 // ==========================================
 const maxAbsolutePnl = computed(() => {
   let max = 0;
@@ -217,8 +227,9 @@ const getBarWidth = (pnl) => {
 </script>
 
 <style scoped>
-.real-chart-container { width: 100%; margin-top: 1rem; }
-
+/* =========================================================
+   基础布局与背景
+========================================================= */
 .apple-layout { display: flex; height: 100vh; width: 100vw; max-width: 100%; background-color: #000000; color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif; overflow: hidden; position: relative; box-sizing: border-box; }
 .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ambient-bg { position: absolute; border-radius: 50%; filter: blur(100px); z-index: 0; opacity: 0.5; animation: float 20s ease-in-out infinite alternate; pointer-events: none; }
@@ -241,168 +252,78 @@ const getBarWidth = (pnl) => {
 .user-info .name { font-size: 0.95rem; font-weight: 600; }
 .user-info .type { font-size: 0.8rem; color: #a1a1a6; }
 
-/* 主内容区 */
+/* 主内容区 & 统一 Header */
 .main-content { flex: 1; min-width: 0; padding: clamp(1.5rem, 3vw, 3rem) clamp(2rem, 4vw, 4rem); overflow-y: auto; overflow-x: hidden; z-index: 10; box-sizing: border-box; }
-.top-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: clamp(1.5rem, 3vh, 3rem); flex-wrap: wrap; gap: 1rem; }
+
+.top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: clamp(1.5rem, 3vh, 2rem); flex-wrap: wrap; gap: 1rem; min-height: 60px; }
 .header-titles { min-width: 0; }
 .page-title { font-size: clamp(2rem, 3vw, 2.5rem); font-weight: 700; margin: 0; letter-spacing: -1px; }
 .datetime { color: #a1a1a6; font-size: clamp(0.9rem, 1.2vw, 1.1rem); margin: 0.5rem 0 0 0; font-weight: 500; }
-.header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-.apple-btn { padding: 0.7rem 1.4rem; border-radius: 20px; font-weight: 600; font-size: clamp(0.85rem, 1vw, 0.95rem); cursor: pointer; border: none; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); white-space: nowrap; }
-.apple-btn:hover { transform: scale(1.03); }
-.apple-btn:active { transform: scale(0.97); }
+.header-actions { display: flex; align-items: center; }
+
+/* 按钮通用样式 */
+.apple-btn { border-radius: 20px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); }
+.apple-btn:hover:not(:disabled) { transform: scale(1.03); }
+.apple-btn:active:not(:disabled) { transform: scale(0.97); }
 .btn-primary { background: #ffffff; color: #000000; box-shadow: 0 4px 14px rgba(255,255,255,0.2); }
-.btn-secondary { background: rgba(255, 255, 255, 0.1); color: #ffffff; backdrop-filter: blur(10px); }
+.global-add-btn { height: 42px; padding: 0 1.5rem; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+
+/* 卡片 */
 .glass-card { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: clamp(1.2rem, 2vw, 1.8rem); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); box-sizing: border-box; overflow: hidden; }
-.card-header { margin-bottom: 1.5rem; }
-.card-header h3 { margin: 0; font-size: clamp(1.05rem, 1.2vw, 1.2rem); font-weight: 600; }
 
-/* 表格布局 */
+/* 表格主体 */
+.table-card { padding-top: 1.5rem; }
 .table-responsive { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
-.apple-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 950px; table-layout: fixed; }
+.apple-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; }
 
-/* 列宽分配：专门给柱状图留出充足空间 */
-.col-asset { width: 22%; }
-.col-num { width: 12%; }
-.col-value { width: 15%; }
-.col-return { width: 15%; }
-.col-bar { width: 12%; }
-
-.apple-table th { color: #a1a1a6; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 1.2rem 1rem 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; text-align: left; }
-.apple-table td { padding: 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; white-space: nowrap; text-align: left; }
+.apple-table th { color: #a1a1a6; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 1rem 1rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
+.apple-table td { padding: 1.2rem 1rem; vertical-align: middle; }
 .apple-table th:first-child, .apple-table td:first-child { padding-left: 0; }
 .apple-table th:last-child, .apple-table td:last-child { padding-right: 0; }
 
-.table-row { transition: background 0.2s; }
-.table-row:hover td { background: rgba(255,255,255,0.03); }
+.col-asset { width: 20%; } .col-qty { width: 10%; } .col-cost { width: 12%; } .col-price { width: 12%; } .col-value { width: 15%; } .col-return { width: 15%; } .col-chart { width: 16%; }
 
 .apple-table .right { text-align: right; }
 .apple-table .center { text-align: center; }
 .font-medium { font-weight: 500; }
 .text-muted { color: #8e8e93; font-size: 0.9rem; }
+.text-green { color: #30d158; } .text-red { color: #ff453a; }
 
-.asset-identity { display: flex; align-items: center; justify-content: flex-start; gap: 1rem; }
-.asset-text-container { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
-.asset-name { font-weight: 600; font-size: clamp(0.95rem, 1vw, 1.05rem); }
-.asset-desc { font-size: 0.85rem; color: #a1a1a6; margin-top: 0.2rem; }
+/* 资产信息 */
+.asset-identity { display: flex; align-items: center; gap: 1rem; }
+.asset-name { font-weight: 600; font-size: 1rem; }
+.asset-desc { color: #8e8e93; font-size: 0.85rem; margin-top: 0.2rem; }
+.return-data { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+.return-dollar { font-size: 0.85rem; }
 
-.return-data { display: flex; flex-direction: column; align-items: flex-end; }
-.return-dollar { font-size: 0.85rem; margin-top: 0.1rem; }
+/* 微型柱状图 */
+.mini-chart-container { display: flex; align-items: center; width: 100%; height: 20px; position: relative; }
+.zero-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.2); transform: translateX(-50%); z-index: 1; }
+.bar-half { flex: 1; height: 100%; display: flex; align-items: center; }
+.left-half { justify-content: flex-end; padding-right: 2px; }
+.right-half { justify-content: flex-flex-start; padding-left: 2px; }
+.bar { height: 6px; border-radius: 3px; transition: width 0.5s ease; }
+.fill-green { background: #30d158; } .fill-red { background: #ff453a; }
 
-.text-green { color: #30d158; font-weight: 600; }
-.text-red { color: #ff453a; font-weight: 600; }
+/* EXPANDABLE ROWS (展开行样式) */
+.table-row { cursor: pointer; transition: all 0.2s ease; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.table-row td { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s; }
+.table-row:hover td { background: rgba(255,255,255,0.02); }
+.table-row.is-expanded td { background: rgba(255, 255, 255, 0.04); border-bottom: none; }
+.expanded-chart-row td { padding: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.expanded-content { background: rgba(0, 0, 0, 0.3); box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.3); padding: 1.5rem 2rem; border-radius: 0 0 16px 16px; margin-bottom: 1rem; }
+.expanded-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.expanded-header h4 { margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600; }
+.real-chart-container { width: 100%; }
 
-/* =========================================================
-   INLINE MINI BAR CHART (纯 CSS 实现的双向柱状图)
-========================================================= */
-.mini-chart-container {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  max-width: 100px;
-  height: 24px;
-  margin: 0 auto;
-  position: relative;
-}
-
-/* 红色亏损条区域 (左侧，内容靠右对齐生长) */
-.bar-half.left-half {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end; /* 让柱子从中心向左生长 */
-}
-
-/* 绿色盈利条区域 (右侧，内容靠左对齐生长) */
-.bar-half.right-half {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start; /* 让柱子从中心向右生长 */
-}
-
-/* 中心的灰色 0 轴标线 */
-.zero-line {
-  width: 2px;
-  height: 14px;
-  background-color: #636366;
-  margin: 0 2px;
-  border-radius: 2px;
-  z-index: 2;
-}
-
-/* bar chart的通用样式 */
-.bar {
-  height: 6px; /* bar的粗细 */
-  border-radius: 3px;
-  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); /* 加载时的丝滑动画 */
-}
-
-/* 填充颜色 */
-.fill-green { background-color: #30d158; }
-.fill-red { background-color: #ff453a; }
+/* 链接样式 */
+.apple-link { background: none; border: none; color: #0a84ff; font-size: 0.9rem; font-weight: 500; cursor: pointer; padding: 0; transition: opacity 0.2s; display: inline-flex; align-items: center; gap: 0.3rem;}
+.apple-link:hover { opacity: 0.8; text-decoration: underline; }
 
 /* 动画 */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fade-in { opacity: 0; animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.delay-1 { animation-delay: 0.1s; }
-.delay-2 { animation-delay: 0.2s; }
-
-/* 让数据行鼠标变成手型，提示可点击 */
-.table-row { 
-  cursor: pointer; 
-  transition: all 0.2s ease;
-}
-
-/* 选中展开时，稍微改变背景色以突出显示 */
-.table-row.is-expanded td {
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom: none; /* 移除底部边框，与下方的展开区融为一体 */
-}
-
-/* 展开行的单元格移除默认 padding，由内部内容控制 */
-.expanded-chart-row td {
-  padding: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* 展开内容的玻璃面板设计 */
-.expanded-content {
-  background: rgba(0, 0, 0, 0.3); /* 比外面更深一点，形成内嵌感 */
-  box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.3);
-  padding: 1.5rem 2rem;
-  border-radius: 0 0 16px 16px;
-  margin-bottom: 1rem;
-}
-
-.expanded-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.expanded-header h4 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #fff;
-  font-weight: 600;
-}
-
-/* 模拟图表的占位符 */
-.mock-line-chart {
-  height: 220px;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #636366;
-  font-family: monospace;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0) 100%);
-}
-
-
+.delay-1 { animation-delay: 0.1s; } .delay-2 { animation-delay: 0.2s; }
+@keyframes fadeInFast { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in-fast { animation: fadeInFast 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 </style>

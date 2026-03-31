@@ -53,3 +53,24 @@ export const getStockHistoricalData = async (symbol, days = 30) => {
     return null;
   }
 };
+
+// 新增：获取当日分时数据 (Intraday)
+export const getMarketIntradayData = async (symbol = 'VOO') => {
+  // 获取过去 24 小时的时间戳
+  const to = Math.floor(Date.now() / 1000); 
+  const from = to - (24 * 60 * 60); 
+
+  try {
+    // resolution=15 代表 15分钟级别的 K 线
+    const response = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=15&from=${from}&to=${to}&token=${API_KEY}`);
+    const data = await response.json();
+    
+    if (data && data.s === 'ok') {
+      return data.c; // 返回收盘价数组
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error fetching intraday data for ${symbol}:`, error);
+    return null;
+  }
+};
