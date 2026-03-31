@@ -24,10 +24,12 @@ public class User {
     private String email;
 
     @OneToMany(mappedBy = "user")
+    // 当把 User 序列化出来时，HoldingRecord 里不再返回回 User，避免循环
     @JsonIgnoreProperties("user")
     private List<HoldingRecord> holdingRecords;
 
     @OneToMany(mappedBy = "user")
+    // 当把 User 序列化出来时，TransactionRecord 里不再返回回 User，避免循环
     @JsonIgnoreProperties("user")
     private List<TransactionRecord> transactionRecords;
 

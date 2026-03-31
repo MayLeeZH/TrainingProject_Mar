@@ -29,10 +29,13 @@ public class TransactionRecord {
     private double transactionalPrice;
 
     @ManyToOne
-    @JsonIgnoreProperties("transactionRecords")
+    // 防止 TransactionRecord -> User -> (holdingRecords/transactionRecords) 的递归
+    @JsonIgnoreProperties({"holdingRecords", "transactionRecords"})
     private User user;
 
     @ManyToOne
+    // 防止 TransactionRecord -> holdingRecord -> user/transactionRecords 再次回环
+    @JsonIgnoreProperties({"transactionRecords", "user"})
     private HoldingRecord holdingRecord;
 
 }
