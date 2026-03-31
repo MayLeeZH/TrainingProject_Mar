@@ -1,7 +1,9 @@
 package com.hsbc.finalproject.controller;
 
+import com.hsbc.finalproject.dto.YahooFinanceQuoteResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.service.HoldingRecordService;
+import com.hsbc.finalproject.service.YahooFinanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,9 @@ public class HoldingRecordController {
     @Autowired
     private HoldingRecordService holdingRecordService;
 
+    @Autowired
+    private YahooFinanceService yahooFinanceService;
+
     @GetMapping("/holds")
     public ResponseEntity<List<HoldingRecord>> showAllHoldingRecords() {
         return ResponseEntity.ok(holdingRecordService.showAllHoldingRecords());
@@ -25,6 +30,18 @@ public class HoldingRecordController {
         Optional<HoldingRecord> holdingRecord = holdingRecordService.showHoldingRecordById(id);
         if (holdingRecord.isPresent()) {
             return ResponseEntity.ok(holdingRecord.get());
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/holds/{id}/quote")
+    public ResponseEntity<YahooFinanceQuoteResponse> showHoldingQuoteById(@PathVariable Long id) {
+        Optional<HoldingRecord> holdingRecord = holdingRecordService.showHoldingRecordById(id);
+        if (holdingRecord.isPresent()) {
+            YahooFinanceQuoteResponse quoteResponse =
+                    yahooFinanceService.getQuoteBySymbol(holdingRecord.get().getAssetCode());
+            return ResponseEntity.ok(quoteResponse);
         } else {
             return ResponseEntity.notFound().build();
         }
