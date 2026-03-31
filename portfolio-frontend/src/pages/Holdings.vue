@@ -62,41 +62,61 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="asset in enrichedHoldings" :key="asset.ticker" class="table-row">
-                <td>
-                  <div class="asset-identity">
-                    <div class="asset-text-container">
-                      <div class="asset-name">{{ asset.ticker }}</div>
-                      <div class="asset-desc">{{ asset.name }}</div>
-                    </div>
-                  </div>
-                </td>
+              <template v-for="asset in enrichedHoldings" :key="asset.ticker">
                 
-                <td class="right">{{ asset.quantity }}</td>
-                <td class="right text-muted">{{ asset.cost }}</td>
-                <td class="right">{{ asset.price }}</td>
-                <td class="right font-medium">{{ asset.marketValue }}</td>
-                <td class="right">
-                  <div class="return-data">
-                    <span :class="asset.pnl > 0 ? 'text-green' : 'text-red'">
-                      {{ asset.pnl > 0 ? '+' : '' }}{{ asset.pnl }}%
-                    </span>
-                    <span class="return-dollar text-muted">{{ asset.pnlDollar > 0 ? '+' : '' }}${{ asset.pnlDollar }}</span>
-                  </div>
-                </td>
+                <tr 
+                  class="table-row" 
+                  @click="toggleRow(asset.ticker)"
+                  :class="{ 'is-expanded': expandedRow === asset.ticker }"
+                >
+                  <td>
+                    <div class="asset-identity">
+                      <div class="asset-text-container">
+                        <div class="asset-name">{{ asset.ticker }}</div>
+                        <div class="asset-desc">{{ asset.name }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="right">{{ asset.quantity }}</td>
+                  <td class="right text-muted">{{ asset.cost }}</td>
+                  <td class="right">{{ asset.price }}</td>
+                  <td class="right font-medium">{{ asset.marketValue }}</td>
+                  <td class="right">
+                    <div class="return-data">
+                      <span :class="asset.pnl > 0 ? 'text-green' : 'text-red'">
+                        {{ asset.pnl > 0 ? '+' : '' }}{{ asset.pnl }}%
+                      </span>
+                      <span class="return-dollar text-muted">{{ asset.pnlDollar > 0 ? '+' : '' }}${{ asset.pnlDollar }}</span>
+                    </div>
+                  </td>
+                  <td class="center">
+                    <div class="mini-chart-container">
+                      <div class="bar-half left-half">
+                        <div v-if="asset.pnl < 0" class="bar fill-red" :style="{ width: getBarWidth(asset.pnl) + '%' }"></div>
+                      </div>
+                      <div class="zero-line"></div>
+                      <div class="bar-half right-half">
+                        <div v-if="asset.pnl > 0" class="bar fill-green" :style="{ width: getBarWidth(asset.pnl) + '%' }"></div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
 
-                <td class="center">
-                  <div class="mini-chart-container">
-                    <div class="bar-half left-half">
-                      <div v-if="asset.pnl < 0" class="bar fill-red" :style="{ width: getBarWidth(asset.pnl) + '%' }"></div>
+                <tr v-if="expandedRow === asset.ticker" class="expanded-chart-row">
+                  <td colspan="7">
+                    <div class="expanded-content animate-fade-in">
+                      <div class="expanded-header">
+                        <h4>{{ asset.ticker }} trend</h4>
+                      </div>
+                      
+                     <div class="real-chart-container">
+                        <StockChart :ticker="asset.ticker" :apiSymbol="asset.apiSymbol" :pnl="asset.pnl" />
+                      </div>
                     </div>
-                    <div class="zero-line"></div>
-                    <div class="bar-half right-half">
-                      <div v-if="asset.pnl > 0" class="bar fill-green" :style="{ width: getBarWidth(asset.pnl) + '%' }"></div>
-                    </div>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                </tr>
+
+              </template>
             </tbody>
           </table>
         </div>
@@ -108,10 +128,23 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-// 引入我们写好的 API 服务
 import { getStockQuote } from '../apis/finnhubService.js';
 
-// 重构数据源：增加 apiSymbol 用于请求，增加 costPrice (纯数字) 用于数学计算
+import StockChart from '../components/StockChart.vue';
+// 1. 展开行 逻辑
+const expandedRow = ref(null);
+
+const toggleRow = (ticker) => {
+  if (expandedRow.value === ticker) {
+    expandedRow.value = null; // 收起
+  } else {
+    expandedRow.value = ticker; // 展开
+  }
+};
+
+// ==========================================
+// 2. 核心数据源 (包含 API Symbol 和 成本价)
+// ==========================================
 const mockHoldings = ref([
   { ticker: 'NVDA', apiSymbol: 'NVDA', name: 'NVIDIA Corp.', quantity: 150, costPrice: 420.00, cost: '$420.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
   { ticker: 'VOO', apiSymbol: 'VOO', name: 'Vanguard S&P 500', quantity: 400, costPrice: 440.00, cost: '$440.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
@@ -125,7 +158,9 @@ const mockHoldings = ref([
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const numFormatter = new Intl.NumberFormat('en-US');
 
-// 抓取实时数据的核心逻辑
+// ==========================================
+// 3. 实时 API 数据抓取逻辑
+// ==========================================
 const fetchLiveHoldingsData = async () => {
   for (let asset of mockHoldings.value) {
     if (asset.apiSymbol === 'STATIC') continue;
@@ -136,18 +171,17 @@ const fetchLiveHoldingsData = async () => {
       if (data && data.c) {
         const livePrice = data.c;
 
-        // 1. 更新价格和市值
+        // 更新价格和市值
         asset.price = usdFormatter.format(livePrice);
         const liveMarketValue = livePrice * asset.quantity;
         asset.marketValue = usdFormatter.format(liveMarketValue);
 
-        // 2. 计算盈亏百分比 (用于决定柱状图长短和颜色)
+        // 计算盈亏百分比
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2));
 
-        // 3. 计算盈亏绝对金额 (美元)
+        // 计算盈亏绝对金额
         const dollarDiff = (livePrice - asset.costPrice) * asset.quantity;
-        // 去掉负号，因为我们在 HTML 里手写了逻辑 (asset.pnlDollar > 0 ? '+' : '')，带负号会导致显示 "--600"
         asset.pnlDollar = numFormatter.format(Math.abs(dollarDiff).toFixed(2)); 
       }
     } catch (error) {
@@ -157,32 +191,34 @@ const fetchLiveHoldingsData = async () => {
   }
 };
 
-// 页面挂载时立刻请求数据
+// 页面加载时请求数据
 onMounted(() => {
   fetchLiveHoldingsData();
 });
 
-// 计算所有股票中盈亏百分比绝对值的最大值，作为柱状图的 100% 宽度基准
+// ==========================================
+// 4. 微型柱状图 (Sparkline) 计算逻辑
+// ==========================================
 const maxAbsolutePnl = computed(() => {
   let max = 0;
   mockHoldings.value.forEach(asset => {
     const absVal = Math.abs(asset.pnl);
     if (absVal > max) max = absVal;
   });
-  return max || 1; // 避免除以 0 导致报错
+  return max || 1; 
 });
 
 const enrichedHoldings = computed(() => mockHoldings.value);
 
-// 计算柱子宽度的函数：会根据实时数据动态变化！
 const getBarWidth = (pnl) => {
   const percentage = (Math.abs(pnl) / maxAbsolutePnl.value) * 100;
-  return percentage < 2 ? 2 : percentage; // 给个保底宽度 2% 保证肉眼可见
+  return percentage < 2 ? 2 : percentage; 
 };
 </script>
 
 <style scoped>
-/* 继承 Apple 基础布局样式 (与 Dashboard 保持一致) */
+.real-chart-container { width: 100%; margin-top: 1rem; }
+
 .apple-layout { display: flex; height: 100vh; width: 100vw; max-width: 100%; background-color: #000000; color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif; overflow: hidden; position: relative; box-sizing: border-box; }
 .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ambient-bg { position: absolute; border-radius: 50%; filter: blur(100px); z-index: 0; opacity: 0.5; animation: float 20s ease-in-out infinite alternate; pointer-events: none; }
@@ -313,4 +349,60 @@ const getBarWidth = (pnl) => {
 .animate-fade-in { opacity: 0; animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .delay-1 { animation-delay: 0.1s; }
 .delay-2 { animation-delay: 0.2s; }
+
+/* 让数据行鼠标变成手型，提示可点击 */
+.table-row { 
+  cursor: pointer; 
+  transition: all 0.2s ease;
+}
+
+/* 选中展开时，稍微改变背景色以突出显示 */
+.table-row.is-expanded td {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: none; /* 移除底部边框，与下方的展开区融为一体 */
+}
+
+/* 展开行的单元格移除默认 padding，由内部内容控制 */
+.expanded-chart-row td {
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 展开内容的玻璃面板设计 */
+.expanded-content {
+  background: rgba(0, 0, 0, 0.3); /* 比外面更深一点，形成内嵌感 */
+  box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem 2rem;
+  border-radius: 0 0 16px 16px;
+  margin-bottom: 1rem;
+}
+
+.expanded-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.expanded-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 模拟图表的占位符 */
+.mock-line-chart {
+  height: 220px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #636366;
+  font-family: monospace;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0) 100%);
+}
+
+
 </style>
