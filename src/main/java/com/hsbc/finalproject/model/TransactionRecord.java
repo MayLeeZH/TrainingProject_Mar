@@ -3,6 +3,7 @@ package com.hsbc.finalproject.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.hsbc.finalproject.model.enums.AssetType;
 import com.hsbc.finalproject.model.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -36,7 +37,7 @@ public class TransactionRecord {
     private String stockCode;
 
     // 新增股票类型
-    private String stockType;
+    private AssetType stockType;
 
     @ManyToOne
     // 防止 TransactionRecord -> User -> (holdingRecords/transactionRecords) 的递归

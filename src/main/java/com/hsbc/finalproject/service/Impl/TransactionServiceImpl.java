@@ -1,11 +1,12 @@
 package com.hsbc.finalproject.service.Impl;
 
+import com.hsbc.finalproject.model.enums.AssetType;
+import com.hsbc.finalproject.model.enums.TransactionType;
 import com.hsbc.finalproject.repository.UserRepository;
 import com.hsbc.finalproject.service.TransactionService;
 import com.hsbc.finalproject.common.ApiResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.model.TransactionRecord;
-import com.hsbc.finalproject.model.TransactionType;
 import com.hsbc.finalproject.model.User;
 import com.hsbc.finalproject.repository.HoldingRecordRepository;
 import com.hsbc.finalproject.repository.TransactionRecordRepository;
@@ -53,7 +54,7 @@ public class TransactionServiceImpl implements TransactionService {
         // 2. 直接从请求中获取股票信息（不需要从 holdingRecord 查）
         String stockCode = request.getStockCode();
         String stockName = request.getStockName();
-        String stockType = request.getStockType();
+        AssetType stockType = request.getStockType();
         Double quantity = request.getQuantity();
         Double transactionalPrice = request.getTransactionalPrice();
         TransactionType transactionType = request.getTransactionType();
