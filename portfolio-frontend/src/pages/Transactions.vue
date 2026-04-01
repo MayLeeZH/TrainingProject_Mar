@@ -47,6 +47,7 @@
       <div class="glass-card table-card animate-fade-in delay-2">
         <p v-if="loadError" class="api-error">{{ loadError }}</p>
         <p v-else-if="loading" class="api-loading">加载中…</p>
+        <div v-if="showSuccess" class="api-success">交易添加成功！</div>
         <div class="card-toolbar">
           <div class="search-box">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -117,7 +118,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import AddTransactionModal from '../components/AddTransactionModal.vue';
-import { fetchTransactionsByUser } from '../apis/portfolioApi.js';
+import { fetchTransactionsByUser, createTransaction } from '../apis/portfolioApi.js';
 
 const searchQuery = ref('');
 const filterType = ref('All');
@@ -130,6 +131,7 @@ const defaultUserId = Number(import.meta.env.VITE_DEFAULT_USER_ID) || 1;
 const transactions = ref([]);
 const loading = ref(false);
 const loadError = ref('');
+const showSuccess = ref(false);
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -194,21 +196,30 @@ const filteredTransactions = computed(() => {
   return result;
 });
 
-const handleNewTransaction = (txnData) => {
-  const today = new Date();
-  const timeStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+const handleNewTransaction = async (txnData) => {
+  // 股票名称映射（后续可以从后端或外部配置获取）
   const nameMap = { AAPL: 'Apple Inc.', NVDA: 'NVIDIA Corp.', VOO: 'Vanguard S&P 500', BTC: 'Bitcoin', TSLA: 'Tesla Inc.' };
   const txnName = nameMap[txnData.code] || `${txnData.code} Asset`;
-  transactions.value.unshift({
-    id: Date.now(),
-    time: timeStr,
-    name: txnName,
-    code: txnData.code,
-    type: txnData.type,
-    quantity: txnData.quantity,
-    price: usdFormatter.format(txnData.price),
-    total: usdFormatter.format(txnData.total),
-  });
+
+  try {
+    // 调用后端 API 创建交易
+    await createTransaction({
+      user: { id: defaultUserId },
+      stockCode: txnData.code,
+      stockName: txnName,
+      stockType: 'STOCK',
+      transactionType: txnData.type.toUpperCase(),
+      quantity: txnData.quantity,
+      transactionalPrice: txnData.price,
+    });
+
+    // 重新加载交易列表以显示新记录
+    await loadTransactions();
+    showSuccess.value = true;
+    setTimeout(() => { showSuccess.value = false; }, 3000);
+  } catch (e) {
+    alert(`添加交易失败: ${e instanceof Error ? e.message : String(e)}`);
+  }
 };
 </script>
 
@@ -255,6 +266,7 @@ const handleNewTransaction = (txnData) => {
 
 .api-error { color: #ff453a; font-size: 0.9rem; margin: 0 0 1rem 0; }
 .api-loading { color: #a1a1a6; font-size: 0.9rem; margin: 0 0 1rem 0; }
+.api-success { color: #30d158; font-size: 0.9rem; margin: 0 0 1rem 0; font-weight: 500; animation: fadeInFast 0.3s ease; }
 
 /* 工具栏与搜索框 */
 .card-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }

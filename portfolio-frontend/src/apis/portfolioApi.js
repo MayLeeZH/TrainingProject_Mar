@@ -16,3 +16,24 @@ export async function fetchTransactionsByUser(userId) {
   }
   return res.json();
 }
+
+/**
+ * 创建新交易
+ * @param {Object} txnData - { userId, stockCode, stockName, stockType, transactionType, quantity, transactionalPrice }
+ * @returns {Promise<Object>}
+ */
+export async function createTransaction(txnData) {
+  const url = `${base}/transactions`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(txnData),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`创建失败 ${res.status}: ${text || url}`);
+  }
+  return res.json();
+}
