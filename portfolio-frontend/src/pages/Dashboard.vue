@@ -114,7 +114,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="asset in mockHoldings" :key="asset.ticker" class="table-row">
+              <tr v-for="asset in holdings" :key="asset.id || asset.ticker" class="table-row">
                 <td>
                   <div class="asset-identity">
                     <div class="asset-text-container">
@@ -150,6 +150,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { getStockQuote } from '../apis/finnhubService.js';
+import { getHoldings } from '../apis/holdingService.js'
 import MarketChart from '../components/MarketChart.vue';
 import AllocationChart from '../components/AllocationChart.vue';
 // 引入全局弹窗组件
@@ -162,12 +163,25 @@ const isAddModalOpen = ref(false);
 const compareMode = ref(false);
 const timeframe = ref('1M');
 
-const mockHoldings = ref([
-  { ticker: 'VOO', apiSymbol: 'VOO', name: 'Vanguard S&P 500 ETF', type: 'Equity', quantity: 400, costPrice: 440.00, price: 'Loading...', marketValue: '--', pnl: 0 },
-  { ticker: 'AAPL', apiSymbol: 'AAPL', name: 'Apple Inc.', type: 'Equity', quantity: 200, costPrice: 172.00, price: 'Loading...', marketValue: '--', pnl: 0 },
-  { ticker: 'BTC', apiSymbol: 'BINANCE:BTCUSDT', name: 'Bitcoin', type: 'Crypto', quantity: 0.5, costPrice: 58000.00, price: 'Loading...', marketValue: '--', pnl: 0 },
-  { ticker: 'US05Y', apiSymbol: 'STATIC', name: '5-Year Treasury Bond', type: 'Bond', quantity: 500, costPrice: 100.00, price: '$98.80', marketValue: '$49,400.00', pnl: -1.2 },
-]);
+const holdings = ref([])
+
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD'
+})
+
+const mapAssetType = (assetType) => {
+  if (!assetType) return 'Unknown'
+
+  const value = assetType.toUpperCase()
+
+  if (value === 'STOCK') return 'Stock'
+  if (value === 'CRYPTO') return 'Crypto'
+  if (value === 'BOND') return 'Bond'
+
+  return assetType
+}
+
 
 // --- 处理弹窗提交的数据 ---
 const handleNewTransaction = (txnData) => {
@@ -176,19 +190,43 @@ const handleNewTransaction = (txnData) => {
   // 目前我们只是在控制台打印，弹窗会自动优雅关闭
 };
 
+const fetchHoldings = async () => {
+  try {
+    const data = await getHoldings()
+
+    holdings.value = data.map((item) => ({
+      id: item.id,
+      ticker: item.assetCode,
+      apiSymbol: item.assetCode,
+      name: item.assetName,
+      type: mapAssetType(item.assetType),
+      quantity: item.quantity,
+      costPrice: item.avgPrice,
+      price: 'Loading...',
+      marketValue: '--',
+      pnl: 0
+    }))
+
+    await fetchLiveHoldingsData()
+  } catch (error) {
+    console.error('Failed to fetch holdings:', error)
+  }
+}
+
+
 const fetchLiveHoldingsData = async () => {
-  for (let asset of mockHoldings.value) {
+  for (const asset of holdings.value) {
     if (asset.apiSymbol === 'STATIC') continue;
 
     try {
       const data = await getStockQuote(asset.apiSymbol);
 
-      if (data && data.c) { 
+      if (data && Number.isFinite(data.c)) {
         const livePrice = data.c;
 
-        asset.price = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(livePrice);
+        asset.price = usdFormatter.format(livePrice);
         const liveMarketValue = livePrice * asset.quantity;
-        asset.marketValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(liveMarketValue);
+        asset.marketValue = usdFormatter.format(liveMarketValue);
 
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2)); 
@@ -201,7 +239,7 @@ const fetchLiveHoldingsData = async () => {
 };
 
 onMounted(() => {
-  fetchLiveHoldingsData();
+  fetchHoldings()
 });
 </script>
 

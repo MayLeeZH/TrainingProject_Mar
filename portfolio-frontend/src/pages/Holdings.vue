@@ -12,15 +12,15 @@
         <router-link to="/" class="nav-item" active-class="active" exact>
           <span class="text-truncate">Dashboard</span>
         </router-link>
-        
+
         <router-link to="/holdings" class="nav-item" active-class="active">
           <span class="text-truncate">Holdings</span>
         </router-link>
-        
+
         <router-link to="/transactions" class="nav-item" active-class="active">
           <span class="text-truncate">Transactions</span>
         </router-link>
-        
+
         <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
       </nav>
 
@@ -34,7 +34,6 @@
     </aside>
 
     <main class="main-content">
-      
       <header class="top-header animate-fade-in delay-1">
         <div class="header-titles">
           <h1 class="page-title text-truncate">Detailed Positions</h1>
@@ -47,16 +46,13 @@
         </div>
       </header>
 
-      <!-- 顶部数据概览板块 -->
       <div class="summary-cards animate-fade-in delay-1">
-        <!-- 1. Holdings 数量与类别 -->
         <div class="glass-card summary-card">
           <div class="summary-title">Total Holdings</div>
           <div class="summary-value">{{ totalHoldingsCount }}</div>
           <div class="summary-sub">Across {{ uniqueAssetClassesCount }} asset classes</div>
         </div>
 
-        <!-- 2. 总资产分块 -->
         <div class="glass-card summary-card">
           <div class="summary-title">Total Assets</div>
           <div class="summary-value">{{ usdFormatter.format(totalAssetsValue) }}</div>
@@ -72,7 +68,6 @@
           </div>
         </div>
 
-        <!-- 3. 总收益率 -->
         <div class="glass-card summary-card">
           <div class="summary-title">Total Return</div>
           <div class="summary-value" :class="totalReturnRate >= 0 ? 'text-green' : 'text-red'">
@@ -113,10 +108,9 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="asset in enrichedHoldings" :key="asset.ticker">
-                
-                <tr 
-                  class="table-row" 
+              <template v-for="asset in enrichedHoldings" :key="asset.id || asset.ticker">
+                <tr
+                  class="table-row"
                   @click="toggleRow(asset.ticker)"
                   :class="{ 'is-expanded': expandedRow === asset.ticker }"
                 >
@@ -147,86 +141,77 @@
                     <div class="expanded-content animate-fade-in-fast">
                       <div class="expanded-header">
                         <h4>{{ asset.ticker }} Trend</h4>
-                        <button class="apple-link" @click.stop="toggleRow(asset.ticker)">Close ✕</button>
+                        <button class="apple-link" @click.stop="toggleRow(asset.ticker)">Close</button>
                       </div>
-                      
+
                       <div class="real-chart-container">
                         <StockChart :ticker="asset.ticker" :apiSymbol="asset.apiSymbol" :pnl="asset.pnl" />
                       </div>
                     </div>
                   </td>
                 </tr>
-
               </template>
             </tbody>
           </table>
         </div>
       </div>
 
-      <AddTransactionModal 
-        v-model="isAddModalOpen" 
-        @submit="handleNewTransaction" 
+      <AddTransactionModal
+        v-model="isAddModalOpen"
+        @submit="handleNewTransaction"
       />
-
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { getHoldings } from '../apis/holdingService.js';
 import { getStockQuote } from '../apis/finnhubService.js';
 import StockChart from '../components/StockChart.vue';
 import AddTransactionModal from '../components/AddTransactionModal.vue';
 
-// ==========================================
-// 状态管理
-// ==========================================
 const isAddModalOpen = ref(false);
 const expandedRow = ref(null);
+const holdings = ref([]);
 
-const toggleRow = (ticker) => {
-  if (expandedRow.value === ticker) {
-    expandedRow.value = null; 
-  } else {
-    expandedRow.value = ticker; 
-  }
-};
-
-// ==========================================
-// 核心数据源
-// ==========================================
-const mockHoldings = ref([
-  { ticker: 'NVDA', type: 'Stock', apiSymbol: 'NVDA', name: 'NVIDIA Corp.', quantity: 150, costPrice: 420.00, cost: '$420.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 150 * 420, rawCostValue: 150 * 420 },
-  { ticker: 'VOO', type: 'Fund', apiSymbol: 'VOO', name: 'Vanguard S&P 500', quantity: 400, costPrice: 440.00, cost: '$440.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 400 * 440, rawCostValue: 400 * 440 },
-  { ticker: 'AAPL', type: 'Stock', apiSymbol: 'AAPL', name: 'Apple Inc.', quantity: 200, costPrice: 172.00, cost: '$172.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 200 * 172, rawCostValue: 200 * 172 },
-  { ticker: 'TSLA', type: 'Stock', apiSymbol: 'TSLA', name: 'Tesla Inc.', quantity: 100, costPrice: 240.00, cost: '$240.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 100 * 240, rawCostValue: 100 * 240 },
-  { ticker: 'US05Y', type: 'Bond', apiSymbol: 'STATIC', name: '5-Year Treasury', quantity: 500, costPrice: 100.00, cost: '$100.00', price: '$98.80', marketValue: '$49,400.00', pnl: -1.2, pnlDollar: '-600', dailyChangePct: 0, rawMarketValue: 49400.00, rawCostValue: 50000.00 },
-  { ticker: 'SNOW', type: 'Stock', apiSymbol: 'SNOW', name: 'Snowflake Inc.', quantity: 50, costPrice: 210.00, cost: '$210.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 50 * 210, rawCostValue: 50 * 210 },
-]);
-
-const cashBalance = ref(50000.00); // 默认现金余额
+const cashBalance = ref(50000.0);
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const numFormatter = new Intl.NumberFormat('en-US');
 
-// ==========================================
-// 顶部概览数据计算
-// ==========================================
-const totalHoldingsCount = computed(() => mockHoldings.value.length);
+const toggleRow = (ticker) => {
+  expandedRow.value = expandedRow.value === ticker ? null : ticker;
+};
+
+const mapAssetType = (assetType) => {
+  if (!assetType) return 'Unknown';
+
+  const value = String(assetType).toUpperCase();
+
+  if (value === 'STOCK') return 'Stock';
+  if (value === 'CRYPTO') return 'Crypto';
+  if (value === 'BOND') return 'Bond';
+  if (value === 'FUND') return 'Fund';
+
+  return assetType;
+};
+
+const totalHoldingsCount = computed(() => holdings.value.length);
 
 const uniqueAssetClassesCount = computed(() => {
-  const types = new Set(mockHoldings.value.map(h => h.type));
+  const types = new Set(holdings.value.map((h) => h.type));
   return types.size;
 });
 
 const totalHoldingsValue = computed(() => {
-  return mockHoldings.value.reduce((sum, h) => sum + h.rawMarketValue, 0);
+  return holdings.value.reduce((sum, h) => sum + h.rawMarketValue, 0);
 });
 
 const totalAssetsValue = computed(() => totalHoldingsValue.value + cashBalance.value);
 
 const totalCostValue = computed(() => {
-  return mockHoldings.value.reduce((sum, h) => sum + h.rawCostValue, 0);
+  return holdings.value.reduce((sum, h) => sum + h.rawCostValue, 0);
 });
 
 const totalReturnRate = computed(() => {
@@ -238,32 +223,30 @@ const totalReturnDollar = computed(() => {
   return totalHoldingsValue.value - totalCostValue.value;
 });
 
-// ==========================================
-// API 数据抓取与处理
-// ==========================================
 const fetchLiveHoldingsData = async () => {
-  for (let asset of mockHoldings.value) {
+  for (const asset of holdings.value) {
     if (asset.apiSymbol === 'STATIC') continue;
 
     try {
       const data = await getStockQuote(asset.apiSymbol);
-      
-      if (data && data.c) {
+
+      if (data && Number.isFinite(data.c)) {
         const livePrice = data.c;
         asset.price = usdFormatter.format(livePrice);
+
         const liveMarketValue = livePrice * asset.quantity;
         asset.marketValue = usdFormatter.format(liveMarketValue);
-        asset.rawMarketValue = liveMarketValue; // Update raw info for overall statistics
+        asset.rawMarketValue = liveMarketValue;
 
-        const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
+        const returnPct = asset.costPrice === 0 ? 0 : ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2));
 
-        if (data.dp !== undefined) {
+        if (typeof data.dp === 'number') {
           asset.dailyChangePct = parseFloat(data.dp.toFixed(2));
         }
 
         const dollarDiff = (livePrice - asset.costPrice) * asset.quantity;
-        asset.pnlDollar = numFormatter.format(Math.abs(dollarDiff).toFixed(2)); 
+        asset.pnlDollar = numFormatter.format(Math.abs(dollarDiff).toFixed(2));
       }
     } catch (error) {
       console.error(`Failed to fetch live data for ${asset.ticker}:`, error);
@@ -272,19 +255,48 @@ const fetchLiveHoldingsData = async () => {
   }
 };
 
-onMounted(() => {
-  fetchLiveHoldingsData();
-});
+const fetchHoldings = async () => {
+  try {
+    const data = await getHoldings();
 
-// 处理弹窗提交的新数据
-const handleNewTransaction = (txnData) => {
-  console.log("New Transaction submitted from Holdings page:", txnData);
-  // 在真实应用中，你可以在这里根据买入/卖出，更新对应资产的持仓数量和成本价
+    holdings.value = data.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      const costPrice = Number(item.avgPrice || 0);
+      const rawCostValue = quantity * costPrice;
+
+      return {
+        id: item.id,
+        ticker: item.assetCode,
+        apiSymbol: item.assetCode,
+        name: item.assetName,
+        type: mapAssetType(item.assetType),
+        quantity,
+        costPrice,
+        cost: usdFormatter.format(costPrice),
+        price: 'Loading...',
+        marketValue: usdFormatter.format(rawCostValue),
+        rawMarketValue: rawCostValue,
+        rawCostValue,
+        pnl: 0,
+        pnlDollar: '0',
+        dailyChangePct: 0
+      };
+    });
+
+    await fetchLiveHoldingsData();
+  } catch (error) {
+    console.error('Failed to fetch holdings:', error);
+  }
 };
 
-// ==========================================
-// 排序逻辑
-// ==========================================
+onMounted(() => {
+  fetchHoldings();
+});
+
+const handleNewTransaction = (txnData) => {
+  console.log('New Transaction submitted from Holdings page:', txnData);
+};
+
 const sortKey = ref(null);
 const sortAsc = ref(false);
 
@@ -303,10 +315,13 @@ const toggleSort = (key) => {
 };
 
 const enrichedHoldings = computed(() => {
-  let result = [...mockHoldings.value];
+  const result = [...holdings.value];
+
   if (sortKey.value) {
     result.sort((a, b) => {
-      let valA, valB;
+      let valA;
+      let valB;
+
       if (sortKey.value === 'total') {
         valA = a.rawMarketValue;
         valB = b.rawMarketValue;
@@ -317,19 +332,20 @@ const enrichedHoldings = computed(() => {
         valA = a.dailyChangePct;
         valB = b.dailyChangePct;
       }
-      
+
       if (valA === valB) return 0;
       if (sortAsc.value) return valA > valB ? 1 : -1;
       return valA < valB ? 1 : -1;
     });
   }
+
   return result;
 });
 </script>
 
 <style scoped>
 /* =========================================================
-   基础布局与背景
+   鍩虹甯冨眬涓庤儗鏅?
 ========================================================= */
 .apple-layout { display: flex; height: 100vh; width: 100vw; max-width: 100%; background-color: #000000; color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif; overflow: hidden; position: relative; box-sizing: border-box; }
 .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -338,7 +354,7 @@ const enrichedHoldings = computed(() => {
 .blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, #0a2e3f 0%, rgba(0,0,0,0) 70%); }
 @keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(5%, 5%) scale(1.1); } }
 
-/* 侧边栏 */
+/* 渚ц竟鏍?*/
 .glass-sidebar { width: clamp(220px, 18vw, 280px); flex-shrink: 0; background: rgba(30, 30, 32, 0.4); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border-right: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; padding: clamp(1.5rem, 2vh, 2.5rem) 1.5rem; z-index: 10; box-sizing: border-box; }
 .brand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: clamp(2rem, 4vh, 3rem); padding-left: 0.5rem; }
 .brand-title { font-size: clamp(1.1rem, 1.5vw, 1.4rem); font-weight: 700; margin: 0; letter-spacing: -0.5px; white-space: nowrap; }
@@ -353,12 +369,12 @@ const enrichedHoldings = computed(() => {
 .user-info .name { font-size: 0.95rem; font-weight: 600; }
 .user-info .type { font-size: 0.8rem; color: #a1a1a6; }
 
-/* 主内容区 & 统一 Header */
+/* 涓诲唴瀹瑰尯 & 缁熶竴 Header */
 .main-content { flex: 1; min-width: 0; padding: clamp(1.5rem, 3vw, 3rem) clamp(2rem, 4vw, 4rem); overflow-y: auto; overflow-x: hidden; z-index: 10; box-sizing: border-box; }
 
 .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: clamp(1.5rem, 3vh, 2rem); flex-wrap: wrap; gap: 1rem; min-height: 60px; }
 
-/* 顶部概览卡片 */
+/* 椤堕儴姒傝鍗＄墖 */
 .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
 .summary-card { display: flex; flex-direction: column; padding: 1.5rem; }
 .summary-title { color: #a1a1a6; font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.8rem; }
@@ -377,24 +393,24 @@ const enrichedHoldings = computed(() => {
 .datetime { color: #a1a1a6; font-size: clamp(0.9rem, 1.2vw, 1.1rem); margin: 0.5rem 0 0 0; font-weight: 500; }
 .header-actions { display: flex; align-items: center; }
 
-/* 按钮通用样式 */
+/* 鎸夐挳閫氱敤鏍峰紡 */
 .apple-btn { border-radius: 20px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); }
 .apple-btn:hover:not(:disabled) { transform: scale(1.03); }
 .apple-btn:active:not(:disabled) { transform: scale(0.97); }
 .btn-primary { background: #ffffff; color: #000000; box-shadow: 0 4px 14px rgba(255,255,255,0.2); }
 .global-add-btn { height: 42px; padding: 0 1.5rem; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
 
-/* 卡片 */
+/* 鍗＄墖 */
 .glass-card { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: clamp(1.2rem, 2vw, 1.8rem); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); box-sizing: border-box; overflow: hidden; }
 
-/* 表格控制（排序按钮等） */
+/* 琛ㄦ牸鎺у埗锛堟帓搴忔寜閽瓑锛?*/
 .table-controls { display: flex; align-items: center; gap: 0.8rem; padding: 0 0.5rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 1rem; }
 .sort-label { color: #a1a1a6; font-size: 0.9rem; font-weight: 500; }
 .sort-chip { background: rgba(255,255,255,0.05); color: #a1a1a6; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 0.4rem 0.8rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.3rem; }
 .sort-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .sort-chip.active { background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); }
 
-/* 表格主体 */
+/* 琛ㄦ牸涓讳綋 */
 .table-card { padding-top: 1.5rem; }
 .table-responsive { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
 .apple-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; }
@@ -412,11 +428,11 @@ const enrichedHoldings = computed(() => {
 .text-muted { color: #8e8e93; font-size: 0.9rem; }
 .text-green { color: #30d158; } .text-red { color: #ff453a; }
 
-/* 资产信息 */
+/* 璧勪骇淇℃伅 */
 .asset-name { font-weight: 600; font-size: 0.95rem; }
 .asset-code { border: 1px solid rgba(255,255,255,0.1); padding: 0.2rem 0.5rem; border-radius: 6px; display: inline-block; font-size: 0.8rem; background: rgba(255,255,255,0.03); color: #e5e5ea; }
 
-/* EXPANDABLE ROWS (展开行样式) */
+/* EXPANDABLE ROWS (灞曞紑琛屾牱寮? */
 .table-row { cursor: pointer; transition: all 0.2s ease; border-bottom: 1px solid rgba(255,255,255,0.04); }
 .table-row td { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s; }
 .table-row:hover td { background: rgba(255,255,255,0.02); }
@@ -427,11 +443,11 @@ const enrichedHoldings = computed(() => {
 .expanded-header h4 { margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600; }
 .real-chart-container { width: 100%; }
 
-/* 链接样式 */
+/* 閾炬帴鏍峰紡 */
 .apple-link { background: none; border: none; color: #0a84ff; font-size: 0.9rem; font-weight: 500; cursor: pointer; padding: 0; transition: opacity 0.2s; display: inline-flex; align-items: center; gap: 0.3rem;}
 .apple-link:hover { opacity: 0.8; text-decoration: underline; }
 
-/* 动画 */
+/* 鍔ㄧ敾 */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fade-in { opacity: 0; animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .delay-1 { animation-delay: 0.1s; } .delay-2 { animation-delay: 0.2s; }
