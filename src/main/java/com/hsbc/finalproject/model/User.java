@@ -20,7 +20,7 @@ public class User {
     private Long id;
 
     private String name;
-    private double amount;
+    private Double amount;
     private String email;
 
     @OneToMany(mappedBy = "user")
