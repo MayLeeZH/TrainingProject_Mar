@@ -1,5 +1,8 @@
 package com.hsbc.finalproject.service;
 
+import com.hsbc.finalproject.dto.AssetDistributionDTO;
+import com.hsbc.finalproject.dto.TotalAssetDTO;
+import com.hsbc.finalproject.dto.YahooFinanceQuoteResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 
 import java.util.List;
@@ -11,4 +14,7 @@ public interface HoldingRecordService {
     void deleteHoldingRecordById(Long id);
     HoldingRecord saveHoldingRecord(HoldingRecord holdingRecord);
     HoldingRecord saveHoldingRecordWithTransactions(HoldingRecord holdingRecord);
+    TotalAssetDTO getTotalAsset(Long id);
+
+    List<AssetDistributionDTO> getAssetDistribution(Long id);
 }

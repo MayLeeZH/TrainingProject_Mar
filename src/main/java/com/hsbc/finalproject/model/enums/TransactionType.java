@@ -1,4 +1,4 @@
-package com.hsbc.finalproject.model;
+package com.hsbc.finalproject.model.enums;
 
 public enum TransactionType {
     BUY,

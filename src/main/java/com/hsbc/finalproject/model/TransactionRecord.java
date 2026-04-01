@@ -2,6 +2,7 @@ package com.hsbc.finalproject.model;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.hsbc.finalproject.model.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

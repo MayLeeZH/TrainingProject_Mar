@@ -1,10 +1,11 @@
 package com.hsbc.finalproject.service.Impl;
 
+import com.hsbc.finalproject.model.enums.AssetType;
 import com.hsbc.finalproject.service.TransactionService;
 import com.hsbc.finalproject.common.ApiResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.model.TransactionRecord;
-import com.hsbc.finalproject.model.TransactionType;
+import com.hsbc.finalproject.model.enums.TransactionType;
 import com.hsbc.finalproject.model.User;
 import com.hsbc.finalproject.repository.HoldingRecordRepository;
 import com.hsbc.finalproject.repository.TransactionRecordRepository;
@@ -17,8 +18,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static com.hsbc.finalproject.model.TransactionType.BUY;
-import static com.hsbc.finalproject.model.TransactionType.SELL;
+import static com.hsbc.finalproject.model.enums.TransactionType.BUY;
+import static com.hsbc.finalproject.model.enums.TransactionType.SELL;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
@@ -50,7 +51,7 @@ public class TransactionServiceImpl implements TransactionService {
         Long userId = request.getUser().getId();
         String assetCode = request.getHoldingRecord().getAssetCode();
         String assetName = request.getHoldingRecord().getAssetName();
-        String assetType = request.getHoldingRecord().getAssetType();
+        AssetType assetType = request.getHoldingRecord().getAssetType();
         double quantity = request.getQuantity();
         double transactionalPrice = request.getTransactionalPrice();
         TransactionType transactionType = request.getTransactionType();

@@ -1,5 +1,9 @@
 package com.hsbc.finalproject.controller;
 
+import com.hsbc.finalproject.common.ApiResponse;
+import com.hsbc.finalproject.dto.AssetDistributionDTO;
+import com.hsbc.finalproject.dto.DailyProfitDTO;
+import com.hsbc.finalproject.dto.TotalAssetDTO;
 import com.hsbc.finalproject.dto.YahooFinanceQuoteResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.service.HoldingRecordService;
@@ -80,6 +84,23 @@ public class HoldingRecordController {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+
+    @GetMapping("/holds/totalAsset/{id}")
+    public ApiResponse<TotalAssetDTO> getTotalAsset(@PathVariable Long id){
+        return new ApiResponse<>(200, "total asset getting successfully",holdingRecordService.getTotalAsset(id));
+    }
+
+
+    @GetMapping("/holds/daily-profit/{id}")
+    public ApiResponse<DailyProfitDTO> getDailyProfit(@PathVariable Long id){
+        return new ApiResponse<>(){};
+    }
+
+    @GetMapping("/holds/asset-distri/{id}")
+    public ApiResponse<List<AssetDistributionDTO>> getAssetDistri(@PathVariable Long id){
+        return new ApiResponse<>(200,"asset distribution getting successfully",holdingRecordService.getAssetDistribution(id));
     }
 }
 

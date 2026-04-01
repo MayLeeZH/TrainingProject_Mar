@@ -1,6 +1,7 @@
 package com.hsbc.finalproject.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.hsbc.finalproject.model.enums.AssetType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,7 +22,8 @@ public class HoldingRecord {
     private String assetCode;
     private double quantity;
     private double avgPrice;
-    private String assetType;
+    @Enumerated(EnumType.STRING)
+    private AssetType assetType;
 
     @ManyToOne
     // 防止 HoldingRecord -> User -> HoldingRecord/TransactionRecord 的递归序列化
