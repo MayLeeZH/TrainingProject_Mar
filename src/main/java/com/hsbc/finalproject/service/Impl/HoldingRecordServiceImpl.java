@@ -1,5 +1,6 @@
 package com.hsbc.finalproject.service.Impl;
 
+import com.hsbc.finalproject.dto.HoldingRecordListDTO;
 import com.hsbc.finalproject.dto.AssetDistributionDTO;
 import com.hsbc.finalproject.dto.YahooFinanceQuoteResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
@@ -17,6 +18,20 @@ public class HoldingRecordServiceImpl implements HoldingRecordService {
     HoldingRecordRepository recordRepository;
     @Autowired
     YahooFinanceServiceImpl yahooFinanceServiceImpl;
+
+    @Override
+    public List<HoldingRecordListDTO> listHoldingRecordDtos() {
+        return recordRepository.findAll().stream()
+                .map(record -> new HoldingRecordListDTO(
+                        record.getId(),
+                        record.getAssetName(),
+                        record.getAssetCode(),
+                        record.getQuantity(),
+                        record.getAvgPrice(),
+                        record.getAssetType()
+                ))
+                .toList();
+    }
 
     @Override
     public List<HoldingRecord> showAllHoldingRecords() {

@@ -1,14 +1,14 @@
 package com.hsbc.finalproject.controller;
 
 import com.hsbc.finalproject.common.ApiResponse;
+import com.hsbc.finalproject.dto.HoldingRecordListDTO;
+
 import com.hsbc.finalproject.dto.AssetDistributionDTO;
 import com.hsbc.finalproject.dto.YahooFinanceQuoteResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.service.HoldingRecordService;
 import com.hsbc.finalproject.service.YahooFinanceService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,52 +23,57 @@ public class HoldingRecordController {
     private YahooFinanceService yahooFinanceService;
 
     @GetMapping("/holds")
-    public ResponseEntity<List<HoldingRecord>> showAllHoldingRecords() {
-        return ResponseEntity.ok(holdingRecordService.showAllHoldingRecords());
+    public ApiResponse<List<HoldingRecord>> showAllHoldingRecords() {
+        return new ApiResponse<>(200, "show all success", holdingRecordService.showAllHoldingRecords());
+    }
+
+    @GetMapping("/holds/list")
+    public List<HoldingRecordListDTO> listHoldingRecords() {
+        return holdingRecordService.listHoldingRecordDtos();
     }
 
     @GetMapping("/holds/{id}")
-    public ResponseEntity<HoldingRecord> showHoldingRecordById(@PathVariable Long id) {
+    public ApiResponse<HoldingRecord> showHoldingRecordById(@PathVariable Long id) {
         Optional<HoldingRecord> holdingRecord = holdingRecordService.showHoldingRecordById(id);
         if (holdingRecord.isPresent()) {
-            return ResponseEntity.ok(holdingRecord.get());
+            return new ApiResponse<>(200, "get by id success", holdingRecord.get());
         } else {
-            return ResponseEntity.notFound().build();
+            return new ApiResponse<>(400, "user not found", null);
         }
     }
 
     @GetMapping("/holds/{id}/quote")
-    public ResponseEntity<YahooFinanceQuoteResponse> showHoldingQuoteById(@PathVariable Long id) {
+    public ApiResponse<YahooFinanceQuoteResponse> showHoldingQuoteById(@PathVariable Long id) {
         Optional<HoldingRecord> holdingRecord = holdingRecordService.showHoldingRecordById(id);
         if (holdingRecord.isPresent()) {
             YahooFinanceQuoteResponse quoteResponse =
                     yahooFinanceService.getQuoteBySymbol(holdingRecord.get().getAssetCode());
-            return ResponseEntity.ok(quoteResponse);
+            return new ApiResponse<>(200, "querry quote success", quoteResponse);
         } else {
-            return ResponseEntity.notFound().build();
+            return new ApiResponse<>(400, "quote not found", null);
         }
     }
 
     @DeleteMapping("/holds/{id}")
-    public ResponseEntity<HoldingRecord> deleteHoldingRecordById(@PathVariable Long id) {
+    public ApiResponse<Void> deleteHoldingRecordById(@PathVariable Long id) {
         if (holdingRecordService.showHoldingRecordById(id).isPresent()) {
             holdingRecordService.deleteHoldingRecordById(id);
-            return ResponseEntity.noContent().build();
+            return new ApiResponse<>(200, "delete success", null);
         } else {
-            return ResponseEntity.notFound().build();
+            return new ApiResponse<>(400, "user not found", null);
         }
     }
 
     @PostMapping("/holds")
-    public ResponseEntity<HoldingRecord> addHoldingRecord(@RequestBody HoldingRecord holdingRecord) {
+    public ApiResponse<HoldingRecord> addHoldingRecord(@RequestBody HoldingRecord holdingRecord) {
         HoldingRecord saveHoldingRecord = holdingRecordService.saveHoldingRecordWithTransactions(holdingRecord);
-        return new ResponseEntity<>(saveHoldingRecord, HttpStatus.CREATED);
+        return new ApiResponse<>(200, "add success", saveHoldingRecord);
     }
 
     
     // Wait for updating
     @PutMapping("/holds/{id}")
-    public ResponseEntity<HoldingRecord> updateHoldingRecord(@PathVariable Long id, @RequestBody HoldingRecord holdingRecord) {
+    public ApiResponse<HoldingRecord> updateHoldingRecord(@PathVariable Long id, @RequestBody HoldingRecord holdingRecord) {
         Optional<HoldingRecord> optionalHoldingRecord = holdingRecordService.showHoldingRecordById(id);
         if (optionalHoldingRecord.isPresent()) {
             HoldingRecord curHoldingRecord = optionalHoldingRecord.get();
@@ -78,9 +83,9 @@ public class HoldingRecordController {
             curHoldingRecord.setAvgPrice(holdingRecord.getAvgPrice());
             curHoldingRecord.setAssetType(holdingRecord.getAssetType());
             HoldingRecord updatedHoldingRecord = holdingRecordService.saveHoldingRecord(curHoldingRecord);
-            return ResponseEntity.ok(updatedHoldingRecord);
+            return new ApiResponse<>(200, "update success", updatedHoldingRecord);
         } else {
-            return ResponseEntity.notFound().build();
+            return new ApiResponse<>(400, "user not found", null);
         }
     }
 
