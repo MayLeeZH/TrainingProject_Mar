@@ -63,16 +63,25 @@
 
       <div class="charts-grid animate-fade-in delay-3">
         <div class="glass-card chart-card large">
-          <div class="card-header">
-            <h3 class="text-truncate">Market Trend (S&P 500)</h3>
+          <div class="card-header portfolio-header">
+            <div class="header-left">
+              <h3 class="text-truncate">Portfolio Performance</h3>
+              <label class="compare-toggle">
+                <input type="checkbox" v-model="compareMode" />
+                <span class="toggle-track">
+                  <span class="toggle-thumb"></span>
+                </span>
+                <span class="toggle-label text-truncate">Compare S&P 500</span>
+              </label>
+            </div>
             <div class="segmented-control">
-              <button class="active">1D</button>
-              <button>1W</button>
-              <button>1M</button>
+              <button :class="{ active: timeframe === '1D' }" @click="timeframe = '1D'">1D</button>
+              <button :class="{ active: timeframe === '1W' }" @click="timeframe = '1W'">1W</button>
+              <button :class="{ active: timeframe === '1M' }" @click="timeframe = '1M'">1M</button>
             </div>
           </div>
           <div class="real-market-chart-container">
-            <MarketChart />
+            <MarketChart :compareMode="compareMode" :timeframe="timeframe" />
           </div>
         </div>
 
@@ -148,6 +157,10 @@ import AddTransactionModal from '../components/AddTransactionModal.vue';
 
 // --- 控制弹窗的显示 ---
 const isAddModalOpen = ref(false);
+
+// --- 图表控制状态 ---
+const compareMode = ref(false);
+const timeframe = ref('1M');
 
 const mockHoldings = ref([
   { ticker: 'VOO', apiSymbol: 'VOO', name: 'Vanguard S&P 500 ETF', type: 'Equity', quantity: 400, costPrice: 440.00, price: 'Loading...', marketValue: '--', pnl: 0 },
@@ -253,6 +266,15 @@ onMounted(() => {
 @media (max-width: 1024px) { .charts-grid { grid-template-columns: 1fr; } }
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .card-header h3 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.portfolio-header { align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+.header-left { display: flex; flex-direction: column; gap: 0.5rem; }
+.compare-toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.compare-toggle input { display: none; }
+.toggle-track { width: 32px; height: 18px; background: rgba(255,255,255,0.1); border-radius: 9px; position: relative; transition: 0.2s; border: 1px solid rgba(255,255,255,0.1); }
+.toggle-thumb { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; background: #a1a1a6; border-radius: 50%; transition: 0.2s; }
+.compare-toggle input:checked + .toggle-track { background: #0a84ff; border-color: #0a84ff; }
+.compare-toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(14px); background: #ffffff; }
+.toggle-label { font-size: 0.85rem; color: #a1a1a6; font-weight: 500; }
 .real-market-chart-container, .real-chart-container { width: 100%; }
 
 .segmented-control { display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 4px; }

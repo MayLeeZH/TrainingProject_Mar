@@ -47,18 +47,69 @@
         </div>
       </header>
 
+      <!-- 顶部数据概览板块 -->
+      <div class="summary-cards animate-fade-in delay-1">
+        <!-- 1. Holdings 数量与类别 -->
+        <div class="glass-card summary-card">
+          <div class="summary-title">Total Holdings</div>
+          <div class="summary-value">{{ totalHoldingsCount }}</div>
+          <div class="summary-sub">Across {{ uniqueAssetClassesCount }} asset classes</div>
+        </div>
+
+        <!-- 2. 总资产分块 -->
+        <div class="glass-card summary-card">
+          <div class="summary-title">Total Assets</div>
+          <div class="summary-value">{{ usdFormatter.format(totalAssetsValue) }}</div>
+          <div class="summary-sub-split">
+            <div class="split-item">
+              <span class="split-label">Invested (Stocks, Bonds, Funds)</span>
+              <span class="split-val">{{ usdFormatter.format(totalHoldingsValue) }}</span>
+            </div>
+            <div class="split-item">
+              <span class="split-label">Cash Balance</span>
+              <span class="split-val">{{ usdFormatter.format(cashBalance) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 总收益率 -->
+        <div class="glass-card summary-card">
+          <div class="summary-title">Total Return</div>
+          <div class="summary-value" :class="totalReturnRate >= 0 ? 'text-green' : 'text-red'">
+            {{ totalReturnRate >= 0 ? '+' : '' }}{{ totalReturnRate.toFixed(2) }}%
+          </div>
+          <div class="summary-sub" :class="totalReturnDollar >= 0 ? 'text-green' : 'text-red'">
+            {{ totalReturnDollar >= 0 ? '+' : '' }}{{ usdFormatter.format(Math.abs(totalReturnDollar)) }} All Time
+          </div>
+        </div>
+      </div>
+
       <div class="glass-card table-card animate-fade-in delay-2">
+        <div class="table-controls">
+          <span class="sort-label">Sort by:</span>
+          <button class="sort-chip" @click="toggleSort('total')" :class="{ active: sortKey === 'total' }">
+            Total <span v-if="sortKey === 'total'">{{ sortAsc ? '↑' : '↓' }}</span>
+          </button>
+          <button class="sort-chip" @click="toggleSort('pnl')" :class="{ active: sortKey === 'pnl' }">
+            Return <span v-if="sortKey === 'pnl'">{{ sortAsc ? '↑' : '↓' }}</span>
+          </button>
+          <button class="sort-chip" @click="toggleSort('dailyChange')" :class="{ active: sortKey === 'dailyChange' }">
+            Daily Change <span v-if="sortKey === 'dailyChange'">{{ sortAsc ? '↑' : '↓' }}</span>
+          </button>
+        </div>
+
         <div class="table-responsive">
           <table class="apple-table">
             <thead>
               <tr>
                 <th class="col-asset">Asset</th>
-                <th class="right col-qty">Shares</th>
-                <th class="right col-cost">Avg Cost</th>
-                <th class="right col-price">Price</th>
-                <th class="right col-value">Market Value</th>
+                <th class="col-code">Code</th>
+                <th class="right col-cost">Avg Price</th>
+                <th class="right col-qty">Quality</th>
+                <th class="right col-price">Current Price</th>
+                <th class="right col-value">Total</th>
                 <th class="right col-return">Total Return</th>
-                <th class="center col-chart">Performance</th>
+                <th class="right col-daily">Daily Change</th>
               </tr>
             </thead>
             <tbody>
@@ -70,40 +121,29 @@
                   :class="{ 'is-expanded': expandedRow === asset.ticker }"
                 >
                   <td>
-                    <div class="asset-identity">
-                      <div class="asset-text-container">
-                        <div class="asset-name">{{ asset.ticker }}</div>
-                        <div class="asset-desc">{{ asset.name }}</div>
-                      </div>
-                    </div>
+                    <div class="asset-name">{{ asset.name }}</div>
                   </td>
-                  <td class="right">{{ asset.quantity }}</td>
+                  <td>
+                    <div class="asset-code font-medium">{{ asset.ticker }}</div>
+                  </td>
                   <td class="right text-muted">{{ asset.cost }}</td>
+                  <td class="right">{{ asset.quantity }}</td>
                   <td class="right">{{ asset.price }}</td>
                   <td class="right font-medium">{{ asset.marketValue }}</td>
                   <td class="right">
-                    <div class="return-data">
-                      <span :class="asset.pnl > 0 ? 'text-green' : 'text-red'">
-                        {{ asset.pnl > 0 ? '+' : '' }}{{ asset.pnl }}%
-                      </span>
-                      <span class="return-dollar text-muted">{{ asset.pnlDollar > 0 ? '+' : '' }}${{ asset.pnlDollar }}</span>
-                    </div>
+                    <span :class="asset.pnl > 0 ? 'text-green' : (asset.pnl < 0 ? 'text-red' : '')">
+                      {{ asset.pnl > 0 ? '+' : '' }}{{ asset.pnl }}%
+                    </span>
                   </td>
-                  <td class="center">
-                    <div class="mini-chart-container">
-                      <div class="bar-half left-half">
-                        <div v-if="asset.pnl < 0" class="bar fill-red" :style="{ width: getBarWidth(asset.pnl) + '%' }"></div>
-                      </div>
-                      <div class="zero-line"></div>
-                      <div class="bar-half right-half">
-                        <div v-if="asset.pnl > 0" class="bar fill-green" :style="{ width: getBarWidth(asset.pnl) + '%' }"></div>
-                      </div>
-                    </div>
+                  <td class="right">
+                    <span :class="asset.dailyChangePct > 0 ? 'text-green' : (asset.dailyChangePct < 0 ? 'text-red' : '')">
+                      {{ asset.dailyChangePct > 0 ? '+' : '' }}{{ asset.dailyChangePct !== undefined ? asset.dailyChangePct + '%' : '--' }}
+                    </span>
                   </td>
                 </tr>
 
                 <tr v-if="expandedRow === asset.ticker" class="expanded-chart-row">
-                  <td colspan="7">
+                  <td colspan="8">
                     <div class="expanded-content animate-fade-in-fast">
                       <div class="expanded-header">
                         <h4>{{ asset.ticker }} Trend</h4>
@@ -156,16 +196,47 @@ const toggleRow = (ticker) => {
 // 核心数据源
 // ==========================================
 const mockHoldings = ref([
-  { ticker: 'NVDA', apiSymbol: 'NVDA', name: 'NVIDIA Corp.', quantity: 150, costPrice: 420.00, cost: '$420.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
-  { ticker: 'VOO', apiSymbol: 'VOO', name: 'Vanguard S&P 500', quantity: 400, costPrice: 440.00, cost: '$440.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
-  { ticker: 'AAPL', apiSymbol: 'AAPL', name: 'Apple Inc.', quantity: 200, costPrice: 172.00, cost: '$172.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
-  { ticker: 'TSLA', apiSymbol: 'TSLA', name: 'Tesla Inc.', quantity: 100, costPrice: 240.00, cost: '$240.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
-  { ticker: 'US05Y', apiSymbol: 'STATIC', name: '5-Year Treasury', quantity: 500, costPrice: 100.00, cost: '$100.00', price: '$98.80', marketValue: '$49,400.00', pnl: -1.2, pnlDollar: '-600' },
-  { ticker: 'SNOW', apiSymbol: 'SNOW', name: 'Snowflake Inc.', quantity: 50, costPrice: 210.00, cost: '$210.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0' },
+  { ticker: 'NVDA', type: 'Stock', apiSymbol: 'NVDA', name: 'NVIDIA Corp.', quantity: 150, costPrice: 420.00, cost: '$420.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 150 * 420, rawCostValue: 150 * 420 },
+  { ticker: 'VOO', type: 'Fund', apiSymbol: 'VOO', name: 'Vanguard S&P 500', quantity: 400, costPrice: 440.00, cost: '$440.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 400 * 440, rawCostValue: 400 * 440 },
+  { ticker: 'AAPL', type: 'Stock', apiSymbol: 'AAPL', name: 'Apple Inc.', quantity: 200, costPrice: 172.00, cost: '$172.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 200 * 172, rawCostValue: 200 * 172 },
+  { ticker: 'TSLA', type: 'Stock', apiSymbol: 'TSLA', name: 'Tesla Inc.', quantity: 100, costPrice: 240.00, cost: '$240.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 100 * 240, rawCostValue: 100 * 240 },
+  { ticker: 'US05Y', type: 'Bond', apiSymbol: 'STATIC', name: '5-Year Treasury', quantity: 500, costPrice: 100.00, cost: '$100.00', price: '$98.80', marketValue: '$49,400.00', pnl: -1.2, pnlDollar: '-600', dailyChangePct: 0, rawMarketValue: 49400.00, rawCostValue: 50000.00 },
+  { ticker: 'SNOW', type: 'Stock', apiSymbol: 'SNOW', name: 'Snowflake Inc.', quantity: 50, costPrice: 210.00, cost: '$210.00', price: 'Loading...', marketValue: '--', pnl: 0, pnlDollar: '0', dailyChangePct: 0, rawMarketValue: 50 * 210, rawCostValue: 50 * 210 },
 ]);
+
+const cashBalance = ref(50000.00); // 默认现金余额
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const numFormatter = new Intl.NumberFormat('en-US');
+
+// ==========================================
+// 顶部概览数据计算
+// ==========================================
+const totalHoldingsCount = computed(() => mockHoldings.value.length);
+
+const uniqueAssetClassesCount = computed(() => {
+  const types = new Set(mockHoldings.value.map(h => h.type));
+  return types.size;
+});
+
+const totalHoldingsValue = computed(() => {
+  return mockHoldings.value.reduce((sum, h) => sum + h.rawMarketValue, 0);
+});
+
+const totalAssetsValue = computed(() => totalHoldingsValue.value + cashBalance.value);
+
+const totalCostValue = computed(() => {
+  return mockHoldings.value.reduce((sum, h) => sum + h.rawCostValue, 0);
+});
+
+const totalReturnRate = computed(() => {
+  if (totalCostValue.value === 0) return 0;
+  return ((totalHoldingsValue.value - totalCostValue.value) / totalCostValue.value) * 100;
+});
+
+const totalReturnDollar = computed(() => {
+  return totalHoldingsValue.value - totalCostValue.value;
+});
 
 // ==========================================
 // API 数据抓取与处理
@@ -182,9 +253,14 @@ const fetchLiveHoldingsData = async () => {
         asset.price = usdFormatter.format(livePrice);
         const liveMarketValue = livePrice * asset.quantity;
         asset.marketValue = usdFormatter.format(liveMarketValue);
+        asset.rawMarketValue = liveMarketValue; // Update raw info for overall statistics
 
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2));
+
+        if (data.dp !== undefined) {
+          asset.dailyChangePct = parseFloat(data.dp.toFixed(2));
+        }
 
         const dollarDiff = (livePrice - asset.costPrice) * asset.quantity;
         asset.pnlDollar = numFormatter.format(Math.abs(dollarDiff).toFixed(2)); 
@@ -207,23 +283,48 @@ const handleNewTransaction = (txnData) => {
 };
 
 // ==========================================
-// 微型柱状图逻辑
+// 排序逻辑
 // ==========================================
-const maxAbsolutePnl = computed(() => {
-  let max = 0;
-  mockHoldings.value.forEach(asset => {
-    const absVal = Math.abs(asset.pnl);
-    if (absVal > max) max = absVal;
-  });
-  return max || 1; 
-});
+const sortKey = ref(null);
+const sortAsc = ref(false);
 
-const enrichedHoldings = computed(() => mockHoldings.value);
-
-const getBarWidth = (pnl) => {
-  const percentage = (Math.abs(pnl) / maxAbsolutePnl.value) * 100;
-  return percentage < 2 ? 2 : percentage; 
+const toggleSort = (key) => {
+  if (sortKey.value === key) {
+    if (!sortAsc.value) {
+      sortAsc.value = true;
+    } else {
+      sortKey.value = null;
+      sortAsc.value = false;
+    }
+  } else {
+    sortKey.value = key;
+    sortAsc.value = false;
+  }
 };
+
+const enrichedHoldings = computed(() => {
+  let result = [...mockHoldings.value];
+  if (sortKey.value) {
+    result.sort((a, b) => {
+      let valA, valB;
+      if (sortKey.value === 'total') {
+        valA = a.rawMarketValue;
+        valB = b.rawMarketValue;
+      } else if (sortKey.value === 'pnl') {
+        valA = a.pnl;
+        valB = b.pnl;
+      } else if (sortKey.value === 'dailyChange') {
+        valA = a.dailyChangePct;
+        valB = b.dailyChangePct;
+      }
+      
+      if (valA === valB) return 0;
+      if (sortAsc.value) return valA > valB ? 1 : -1;
+      return valA < valB ? 1 : -1;
+    });
+  }
+  return result;
+});
 </script>
 
 <style scoped>
@@ -256,6 +357,21 @@ const getBarWidth = (pnl) => {
 .main-content { flex: 1; min-width: 0; padding: clamp(1.5rem, 3vw, 3rem) clamp(2rem, 4vw, 4rem); overflow-y: auto; overflow-x: hidden; z-index: 10; box-sizing: border-box; }
 
 .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: clamp(1.5rem, 3vh, 2rem); flex-wrap: wrap; gap: 1rem; min-height: 60px; }
+
+/* 顶部概览卡片 */
+.summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+.summary-card { display: flex; flex-direction: column; padding: 1.5rem; }
+.summary-title { color: #a1a1a6; font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.8rem; }
+.summary-value { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 0.5rem; }
+.summary-sub { color: #8e8e93; font-size: 0.9rem; margin-top: auto; }
+.summary-sub-split { display: flex; flex-direction: column; gap: 0.6rem; margin-top: auto; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 1rem; }
+.split-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+.split-label { color: #a1a1a6; }
+.split-val { font-weight: 600; }
+
+@media (max-width: 1024px) {
+  .summary-cards { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+}
 .header-titles { min-width: 0; }
 .page-title { font-size: clamp(2rem, 3vw, 2.5rem); font-weight: 700; margin: 0; letter-spacing: -1px; }
 .datetime { color: #a1a1a6; font-size: clamp(0.9rem, 1.2vw, 1.1rem); margin: 0.5rem 0 0 0; font-weight: 500; }
@@ -271,6 +387,13 @@ const getBarWidth = (pnl) => {
 /* 卡片 */
 .glass-card { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: clamp(1.2rem, 2vw, 1.8rem); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); box-sizing: border-box; overflow: hidden; }
 
+/* 表格控制（排序按钮等） */
+.table-controls { display: flex; align-items: center; gap: 0.8rem; padding: 0 0.5rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 1rem; }
+.sort-label { color: #a1a1a6; font-size: 0.9rem; font-weight: 500; }
+.sort-chip { background: rgba(255,255,255,0.05); color: #a1a1a6; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 0.4rem 0.8rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.3rem; }
+.sort-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.sort-chip.active { background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); }
+
 /* 表格主体 */
 .table-card { padding-top: 1.5rem; }
 .table-responsive { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
@@ -281,7 +404,7 @@ const getBarWidth = (pnl) => {
 .apple-table th:first-child, .apple-table td:first-child { padding-left: 0; }
 .apple-table th:last-child, .apple-table td:last-child { padding-right: 0; }
 
-.col-asset { width: 20%; } .col-qty { width: 10%; } .col-cost { width: 12%; } .col-price { width: 12%; } .col-value { width: 15%; } .col-return { width: 15%; } .col-chart { width: 16%; }
+.col-asset { width: 16%; } .col-code { width: 12%; } .col-cost { width: 12%; } .col-qty { width: 12%; } .col-price { width: 12%; } .col-value { width: 14%; } .col-return { width: 11%; } .col-daily { width: 11%; }
 
 .apple-table .right { text-align: right; }
 .apple-table .center { text-align: center; }
@@ -290,20 +413,8 @@ const getBarWidth = (pnl) => {
 .text-green { color: #30d158; } .text-red { color: #ff453a; }
 
 /* 资产信息 */
-.asset-identity { display: flex; align-items: center; gap: 1rem; }
-.asset-name { font-weight: 600; font-size: 1rem; }
-.asset-desc { color: #8e8e93; font-size: 0.85rem; margin-top: 0.2rem; }
-.return-data { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
-.return-dollar { font-size: 0.85rem; }
-
-/* 微型柱状图 */
-.mini-chart-container { display: flex; align-items: center; width: 100%; height: 20px; position: relative; }
-.zero-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.2); transform: translateX(-50%); z-index: 1; }
-.bar-half { flex: 1; height: 100%; display: flex; align-items: center; }
-.left-half { justify-content: flex-end; padding-right: 2px; }
-.right-half { justify-content: flex-flex-start; padding-left: 2px; }
-.bar { height: 6px; border-radius: 3px; transition: width 0.5s ease; }
-.fill-green { background: #30d158; } .fill-red { background: #ff453a; }
+.asset-name { font-weight: 600; font-size: 0.95rem; }
+.asset-code { border: 1px solid rgba(255,255,255,0.1); padding: 0.2rem 0.5rem; border-radius: 6px; display: inline-block; font-size: 0.8rem; background: rgba(255,255,255,0.03); color: #e5e5ea; }
 
 /* EXPANDABLE ROWS (展开行样式) */
 .table-row { cursor: pointer; transition: all 0.2s ease; border-bottom: 1px solid rgba(255,255,255,0.04); }
