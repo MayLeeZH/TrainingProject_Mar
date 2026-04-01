@@ -34,6 +34,10 @@ public class TransactionRecord {
     // 新增股票代码
     private String stockCode;
 
+    // 新增股票类型
+    private String stockType;
+
+
     @ManyToOne
     // 防止 TransactionRecord -> User -> (holdingRecords/transactionRecords) 的递归
     @JsonIgnoreProperties({"holdingRecords", "transactionRecords"})
