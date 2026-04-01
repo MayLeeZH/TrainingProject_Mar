@@ -31,3 +31,46 @@ export async function getStockQuote(ticker) {
     throw error; 
   }
 }
+
+// 新增：获取过去 N 天的真实历史收盘价
+export const getStockHistoricalData = async (symbol, days = 30) => {
+  // Finnhub 的历史数据接口需要 UNIX 时间戳（秒）
+  const to = Math.floor(Date.now() / 1000); 
+  const from = to - (days * 24 * 60 * 60); 
+
+  try {
+    // resolution=D 代表获取"天"级别的数据 (Daily)
+    const response = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${API_KEY}`);
+    const data = await response.json();
+    
+    // API 返回的 s === 'ok' 表示成功，'c' 数组里装的就是每天的收盘价
+    if (data && data.s === 'ok') {
+      return data.c; 
+    }
+    return null; // 如果周末或没数据返回 null
+  } catch (error) {
+    console.error(`Error fetching historical data for ${symbol}:`, error);
+    return null;
+  }
+};
+
+// 新增：获取当日分时数据 (Intraday)
+export const getMarketIntradayData = async (symbol = 'VOO') => {
+  // 获取过去 24 小时的时间戳
+  const to = Math.floor(Date.now() / 1000); 
+  const from = to - (24 * 60 * 60); 
+
+  try {
+    // resolution=15 代表 15分钟级别的 K 线
+    const response = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=15&from=${from}&to=${to}&token=${API_KEY}`);
+    const data = await response.json();
+    
+    if (data && data.s === 'ok') {
+      return data.c; // 返回收盘价数组
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error fetching intraday data for ${symbol}:`, error);
+    return null;
+  }
+};

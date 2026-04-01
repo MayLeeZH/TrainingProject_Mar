@@ -1,17 +1,17 @@
-<template>
+<<template>
   <div v-if="!authStore.isAuthenticated">
     <Login />
   </div>
 
   <div v-else>
-    <Dashboard />
+    <router-view></router-view>
   </div>
 </template>
 
 <script setup>
 import { useAuthStore } from './stores/authStore';
 import Login from './pages/Login.vue';
-import Dashboard from './pages/Dashboard.vue'; // <-- Import your new file!
+// no need import,router will handle it
 
 const authStore = useAuthStore();
 </script>
