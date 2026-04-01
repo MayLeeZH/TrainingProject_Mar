@@ -150,8 +150,9 @@ function mapBackendRow(row) {
   return {
     id: row.id,
     time: timeStr,
-    name: holding.assetName || '—',
-    code: holding.assetCode || '—',
+    // 优先用自己的字段，回退到关联持仓
+    name: row.stockName || holding.assetName || '—',
+    code: row.stockCode || holding.assetCode || '—',
     type: typeLabel,
     quantity: qty,
     price: usdFormatter.format(price),

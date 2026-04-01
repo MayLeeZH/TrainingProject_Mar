@@ -19,8 +19,8 @@ public class HoldingRecord {
 
     private String assetName;
     private String assetCode;
-    private double quantity;
-    private double avgPrice;
+    private Double quantity;
+    private Double avgPrice;
     private String assetType;
 
     @ManyToOne
