@@ -32,8 +32,16 @@ export async function createTransaction(txnData) {
     body: JSON.stringify(txnData),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`创建失败 ${res.status}: ${text || url}`);
+    let errorMessage = `创建失败 ${res.status}`;
+    try {
+      const data = await res.json();
+      if (data.message) {
+        errorMessage = data.message;
+      }
+    } catch {
+      // ignore json parse error
+    }
+    throw new Error(errorMessage);
   }
   return res.json();
 }

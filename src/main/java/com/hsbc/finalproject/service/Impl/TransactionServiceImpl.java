@@ -1,5 +1,6 @@
 package com.hsbc.finalproject.service.Impl;
 
+import com.hsbc.finalproject.exception.InsufficientHoldingsException;
 import com.hsbc.finalproject.repository.UserRepository;
 import com.hsbc.finalproject.service.TransactionService;
 import com.hsbc.finalproject.common.ApiResponse;
@@ -120,8 +121,8 @@ public class TransactionServiceImpl implements TransactionService {
             // 卖出：检查数量是否足够
             double oldQty = holdingRecord.getQuantity();
             if (oldQty < quantity) {
-                log.error("【卖出】持仓不足: 当前持有={}, 想要卖出={}", oldQty, quantity);
-                return new ApiResponse<>(400, "持仓数量不足，当前持有: " + oldQty + "，无法卖出: " + quantity, null);
+                log.info("【卖出】持仓不足: 当前持有={}, 想要卖出={}", oldQty, quantity);
+                throw new InsufficientHoldingsException(oldQty, quantity);
             }
 
             double newQty = oldQty - quantity;

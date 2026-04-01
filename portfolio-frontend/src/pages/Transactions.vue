@@ -48,6 +48,7 @@
         <p v-if="loadError" class="api-error">{{ loadError }}</p>
         <p v-else-if="loading" class="api-loading">加载中…</p>
         <div v-if="showSuccess" class="api-success">交易添加成功！</div>
+        <div v-if="showError" class="api-error"> {{ showError }} </div>
         <div class="card-toolbar">
           <div class="search-box">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -132,6 +133,7 @@ const transactions = ref([]);
 const loading = ref(false);
 const loadError = ref('');
 const showSuccess = ref(false);
+const showError = ref(false);
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -218,7 +220,8 @@ const handleNewTransaction = async (txnData) => {
     showSuccess.value = true;
     setTimeout(() => { showSuccess.value = false; }, 3000);
   } catch (e) {
-    alert(`添加交易失败: ${e instanceof Error ? e.message : String(e)}`);
+    showError.value = e instanceof Error ? e.message : String(e);
+    setTimeout(() => { showError.value = false; }, 5000);
   }
 };
 </script>

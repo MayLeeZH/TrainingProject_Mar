@@ -175,6 +175,7 @@ const isAddModalOpen = ref(false);
 const expandedRow = ref(null);
 const holdings = ref([]);
 
+// TODO: 这个应该灵活变动的，受到买入卖出影响
 const cashBalance = ref(50000.0);
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
