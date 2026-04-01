@@ -45,6 +45,8 @@
       </header>
 
       <div class="glass-card table-card animate-fade-in delay-2">
+        <p v-if="loadError" class="api-error">{{ loadError }}</p>
+        <p v-else-if="loading" class="api-loading">加载中…</p>
         <div class="card-toolbar">
           <div class="search-box">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -113,50 +115,90 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-// 引入刚刚封装好的全局弹窗组件
-import AddTransactionModal from '../components/AddTransactionModal.vue'; 
+import { ref, computed, onMounted } from 'vue';
+import AddTransactionModal from '../components/AddTransactionModal.vue';
+import { fetchTransactionsByUser } from '../apis/portfolioApi.js';
 
-// --- 状态管理 ---
 const searchQuery = ref('');
 const filterType = ref('All');
 const isDropdownOpen = ref(false);
-const isAddModalOpen = ref(false); // 控制弹窗的显示与隐藏
+const isAddModalOpen = ref(false);
 
-// --- 模拟数据 ---
-const mockTransactions = ref([
-  { id: 1, time: '2026/03/31', name: 'NVIDIA Corp.', code: 'NVDA', type: 'Buy', quantity: 50, price: '$850.50', total: '$42,525.00' },
-  { id: 2, time: '2026/03/30', name: 'Apple Inc.', code: 'AAPL', type: 'Buy', quantity: 100, price: '$172.00', total: '$17,200.00' },
-  { id: 3, time: '2026/03/28', name: 'Tesla Inc.', code: 'TSLA', type: 'Sell', quantity: 50, price: '$175.20', total: '$8,760.00' },
-  { id: 4, time: '2026/03/25', name: 'Vanguard S&P 500', code: 'VOO', type: 'Buy', quantity: 200, price: '$440.00', total: '$88,000.00' },
-]);
+/** 当前登录用户 id，与后端 GET /transactions/users/{userId} 一致；可在 .env 里配置 VITE_DEFAULT_USER_ID */
+const defaultUserId = Number(import.meta.env.VITE_DEFAULT_USER_ID) || 1;
 
-// --- 交互与过滤逻辑 ---
+const transactions = ref([]);
+const loading = ref(false);
+const loadError = ref('');
+
+const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+function mapBackendRow(row) {
+  const holding = row.holdingRecord || {};
+  const typeRaw = (row.transactionType || '').toString();
+  const typeLabel = typeRaw === 'SELL' ? 'Sell' : 'Buy';
+  const qty = row.quantity ?? 0;
+  const price = row.transactionalPrice ?? 0;
+  const total = qty * price;
+  let timeStr = '';
+  if (row.time) {
+    const d = new Date(row.time);
+    timeStr = Number.isNaN(d.getTime())
+      ? String(row.time)
+      : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  }
+  return {
+    id: row.id,
+    time: timeStr,
+    name: holding.assetName || '—',
+    code: holding.assetCode || '—',
+    type: typeLabel,
+    quantity: qty,
+    price: usdFormatter.format(price),
+    total: usdFormatter.format(total),
+  };
+}
+
+async function loadTransactions() {
+  loading.value = true;
+  loadError.value = '';
+  try {
+    const list = await fetchTransactionsByUser(defaultUserId);
+    transactions.value = Array.isArray(list) ? list.map(mapBackendRow) : [];
+  } catch (e) {
+    loadError.value = e instanceof Error ? e.message : String(e);
+    transactions.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  loadTransactions();
+});
+
 const toggleDropdown = () => isDropdownOpen.value = !isDropdownOpen.value;
 const closeDropdown = () => { if (isDropdownOpen.value) isDropdownOpen.value = false; };
 const setFilter = (type) => { filterType.value = type; isDropdownOpen.value = false; };
 
 const filteredTransactions = computed(() => {
-  let result = mockTransactions.value;
+  let result = transactions.value;
   if (filterType.value !== 'All') result = result.filter(txn => txn.type === filterType.value);
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    result = result.filter(txn => txn.name.toLowerCase().includes(query) || txn.code.toLowerCase().includes(query));
+    result = result.filter(txn =>
+      String(txn.name).toLowerCase().includes(query) || String(txn.code).toLowerCase().includes(query)
+    );
   }
   return result;
 });
 
-// --- 处理弹窗提交的新数据 ---
 const handleNewTransaction = (txnData) => {
-  const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
   const today = new Date();
-  const timeStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
-
-  const nameMap = { 'AAPL': 'Apple Inc.', 'NVDA': 'NVIDIA Corp.', 'VOO': 'Vanguard S&P 500', 'BTC': 'Bitcoin', 'TSLA': 'Tesla Inc.' };
+  const timeStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+  const nameMap = { AAPL: 'Apple Inc.', NVDA: 'NVIDIA Corp.', VOO: 'Vanguard S&P 500', BTC: 'Bitcoin', TSLA: 'Tesla Inc.' };
   const txnName = nameMap[txnData.code] || `${txnData.code} Asset`;
-
-  // 将新记录插入到表格最前面
-  mockTransactions.value.unshift({
+  transactions.value.unshift({
     id: Date.now(),
     time: timeStr,
     name: txnName,
@@ -164,7 +206,7 @@ const handleNewTransaction = (txnData) => {
     type: txnData.type,
     quantity: txnData.quantity,
     price: usdFormatter.format(txnData.price),
-    total: usdFormatter.format(txnData.total)
+    total: usdFormatter.format(txnData.total),
   });
 };
 </script>
@@ -209,6 +251,9 @@ const handleNewTransaction = (txnData) => {
 
 .glass-card { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: clamp(1.2rem, 2vw, 1.8rem); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); box-sizing: border-box; overflow: hidden; }
 .table-card { padding-top: 1.5rem; }
+
+.api-error { color: #ff453a; font-size: 0.9rem; margin: 0 0 1rem 0; }
+.api-loading { color: #a1a1a6; font-size: 0.9rem; margin: 0 0 1rem 0; }
 
 /* 工具栏与搜索框 */
 .card-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
