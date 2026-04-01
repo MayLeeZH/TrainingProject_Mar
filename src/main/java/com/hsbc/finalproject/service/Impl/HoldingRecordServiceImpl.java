@@ -1,5 +1,6 @@
 package com.hsbc.finalproject.service.Impl;
 
+import com.hsbc.finalproject.dto.HoldingRecordListDTO;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.model.TransactionRecord;
 import com.hsbc.finalproject.repository.HoldingRecordRepository;
@@ -14,6 +15,20 @@ import java.util.Optional;
 public class HoldingRecordServiceImpl implements HoldingRecordService {
     @Autowired
     HoldingRecordRepository recordRepository;
+
+    @Override
+    public List<HoldingRecordListDTO> listHoldingRecordDtos() {
+        return recordRepository.findAll().stream()
+                .map(record -> new HoldingRecordListDTO(
+                        record.getId(),
+                        record.getAssetName(),
+                        record.getAssetCode(),
+                        record.getQuantity(),
+                        record.getAvgPrice(),
+                        record.getAssetType()
+                ))
+                .toList();
+    }
 
     @Override
     public List<HoldingRecord> showAllHoldingRecords() {
