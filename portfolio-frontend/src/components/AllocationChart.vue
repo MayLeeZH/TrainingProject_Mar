@@ -29,7 +29,7 @@ const initChart = () => {
       backgroundColor: 'rgba(30, 30, 32, 0.9)',
       borderColor: 'rgba(255,255,255,0.1)',
       textStyle: { color: '#fff' },
-      // 自定义提示内容格式：Asset Name: 45% 
+      // 自定义提示内容格式：Asset Name: 45%
       formatter: '{b}: {d}%' 
     },
     // 图例（图表下方的小圆点和文字）
@@ -51,7 +51,7 @@ const initChart = () => {
         center: ['50%', '45%'], // 稍微向上偏移一点，给底部的图例留出空间
         avoidLabelOverlap: false,
         itemStyle: {
-          borderRadius: 8, // 让每个扇形的边缘变圆滑 (Apple 细节)
+          borderRadius: 8, // 让每一个扇形的边缘变圆润 (Apple 细节)
           borderColor: '#000', // 描边颜色设置为黑色背景色，制造出扇形之间的间隙
           borderWidth: 3
         },

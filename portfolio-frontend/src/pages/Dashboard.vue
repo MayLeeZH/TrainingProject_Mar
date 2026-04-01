@@ -63,16 +63,25 @@
 
       <div class="charts-grid animate-fade-in delay-3">
         <div class="glass-card chart-card large">
-          <div class="card-header">
-            <h3 class="text-truncate">Market Trend (S&P 500)</h3>
+          <div class="card-header portfolio-header">
+            <div class="header-left">
+              <h3 class="text-truncate">Portfolio Performance</h3>
+              <label class="compare-toggle">
+                <input type="checkbox" v-model="compareMode" />
+                <span class="toggle-track">
+                  <span class="toggle-thumb"></span>
+                </span>
+                <span class="toggle-label text-truncate">Compare S&P 500</span>
+              </label>
+            </div>
             <div class="segmented-control">
-              <button class="active">1D</button>
-              <button>1W</button>
-              <button>1M</button>
+              <button :class="{ active: timeframe === '1D' }" @click="timeframe = '1D'">1D</button>
+              <button :class="{ active: timeframe === '1W' }" @click="timeframe = '1W'">1W</button>
+              <button :class="{ active: timeframe === '1M' }" @click="timeframe = '1M'">1M</button>
             </div>
           </div>
           <div class="real-market-chart-container">
-            <MarketChart />
+            <MarketChart :compareMode="compareMode" :timeframe="timeframe" />
           </div>
         </div>
 
@@ -105,7 +114,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="asset in mockHoldings" :key="asset.ticker" class="table-row">
+              <tr v-for="asset in holdings" :key="asset.id || asset.ticker" class="table-row">
                 <td>
                   <div class="asset-identity">
                     <div class="asset-text-container">
@@ -141,6 +150,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { getStockQuote } from '../apis/finnhubService.js';
+import { getHoldings } from '../apis/holdingService.js'
 import MarketChart from '../components/MarketChart.vue';
 import AllocationChart from '../components/AllocationChart.vue';
 // 引入全局弹窗组件
@@ -149,12 +159,29 @@ import AddTransactionModal from '../components/AddTransactionModal.vue';
 // --- 控制弹窗的显示 ---
 const isAddModalOpen = ref(false);
 
-const mockHoldings = ref([
-  { ticker: 'VOO', apiSymbol: 'VOO', name: 'Vanguard S&P 500 ETF', type: 'Equity', quantity: 400, costPrice: 440.00, price: 'Loading...', marketValue: '--', pnl: 0 },
-  { ticker: 'AAPL', apiSymbol: 'AAPL', name: 'Apple Inc.', type: 'Equity', quantity: 200, costPrice: 172.00, price: 'Loading...', marketValue: '--', pnl: 0 },
-  { ticker: 'BTC', apiSymbol: 'BINANCE:BTCUSDT', name: 'Bitcoin', type: 'Crypto', quantity: 0.5, costPrice: 58000.00, price: 'Loading...', marketValue: '--', pnl: 0 },
-  { ticker: 'US05Y', apiSymbol: 'STATIC', name: '5-Year Treasury Bond', type: 'Bond', quantity: 500, costPrice: 100.00, price: '$98.80', marketValue: '$49,400.00', pnl: -1.2 },
-]);
+// --- 图表控制状态 ---
+const compareMode = ref(false);
+const timeframe = ref('1M');
+
+const holdings = ref([])
+
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD'
+})
+
+const mapAssetType = (assetType) => {
+  if (!assetType) return 'Unknown'
+
+  const value = assetType.toUpperCase()
+
+  if (value === 'STOCK') return 'Stock'
+  if (value === 'CRYPTO') return 'Crypto'
+  if (value === 'BOND') return 'Bond'
+
+  return assetType
+}
+
 
 // --- 处理弹窗提交的数据 ---
 const handleNewTransaction = (txnData) => {
@@ -163,19 +190,43 @@ const handleNewTransaction = (txnData) => {
   // 目前我们只是在控制台打印，弹窗会自动优雅关闭
 };
 
+const fetchHoldings = async () => {
+  try {
+    const data = await getHoldings()
+
+    holdings.value = data.map((item) => ({
+      id: item.id,
+      ticker: item.assetCode,
+      apiSymbol: item.assetCode,
+      name: item.assetName,
+      type: mapAssetType(item.assetType),
+      quantity: item.quantity,
+      costPrice: item.avgPrice,
+      price: 'Loading...',
+      marketValue: '--',
+      pnl: 0
+    }))
+
+    await fetchLiveHoldingsData()
+  } catch (error) {
+    console.error('Failed to fetch holdings:', error)
+  }
+}
+
+
 const fetchLiveHoldingsData = async () => {
-  for (let asset of mockHoldings.value) {
+  for (const asset of holdings.value) {
     if (asset.apiSymbol === 'STATIC') continue;
 
     try {
       const data = await getStockQuote(asset.apiSymbol);
 
-      if (data && data.c) { 
+      if (data && Number.isFinite(data.c)) {
         const livePrice = data.c;
 
-        asset.price = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(livePrice);
+        asset.price = usdFormatter.format(livePrice);
         const liveMarketValue = livePrice * asset.quantity;
-        asset.marketValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(liveMarketValue);
+        asset.marketValue = usdFormatter.format(liveMarketValue);
 
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2)); 
@@ -188,7 +239,7 @@ const fetchLiveHoldingsData = async () => {
 };
 
 onMounted(() => {
-  fetchLiveHoldingsData();
+  fetchHoldings()
 });
 </script>
 
@@ -253,6 +304,15 @@ onMounted(() => {
 @media (max-width: 1024px) { .charts-grid { grid-template-columns: 1fr; } }
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .card-header h3 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.portfolio-header { align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+.header-left { display: flex; flex-direction: column; gap: 0.5rem; }
+.compare-toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.compare-toggle input { display: none; }
+.toggle-track { width: 32px; height: 18px; background: rgba(255,255,255,0.1); border-radius: 9px; position: relative; transition: 0.2s; border: 1px solid rgba(255,255,255,0.1); }
+.toggle-thumb { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; background: #a1a1a6; border-radius: 50%; transition: 0.2s; }
+.compare-toggle input:checked + .toggle-track { background: #0a84ff; border-color: #0a84ff; }
+.compare-toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(14px); background: #ffffff; }
+.toggle-label { font-size: 0.85rem; color: #a1a1a6; font-weight: 500; }
 .real-market-chart-container, .real-chart-container { width: 100%; }
 
 .segmented-control { display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 4px; }
