@@ -9,7 +9,7 @@
       </div>
 
       <nav class="nav-menu">
-        <router-link to="/" class="nav-item" active-class="active" exact>
+        <router-link to="/dashboard" class="nav-item" active-class="active">
           <span class="text-truncate">Dashboard</span>
         </router-link>
 

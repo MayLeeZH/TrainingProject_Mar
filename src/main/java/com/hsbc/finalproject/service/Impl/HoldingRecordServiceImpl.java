@@ -72,32 +72,38 @@ public class HoldingRecordServiceImpl implements HoldingRecordService {
 
         for (HoldingRecord record : holdings) {
             String type = record.getAssetType();
-            double amount;
+            double amount = 0.0;
 
-            if (type == "CASH") {
-                amount = record.getQuantity();
-            } else {
-                // 其他资产：调用外部API获取当前价格
-                YahooFinanceQuoteResponse ret = yahooFinanceServiceImpl.getQuoteBySymbol(record.getAssetCode());
-                double currentPrice = ret.regularMarketPrice();
-                amount = record.getQuantity() * currentPrice;
+            try {
+                if ("CASH".equals(type)) {
+                    amount = record.getQuantity();
+                } else {
+                    YahooFinanceQuoteResponse ret =
+                            yahooFinanceServiceImpl.getQuoteBySymbol(record.getAssetCode());
+                    double currentPrice = ret.regularMarketPrice();
+                    amount = record.getQuantity() * currentPrice;
+                }
+            } catch (Exception e) {
+                // 行情查不到时，用持仓成本价兜底，避免整个接口失败
+                amount = record.getQuantity() * record.getAvgPrice();
             }
 
-            // 累加该类型的金额
             amountMap.merge(type, amount, Double::sum);
             totalAmount += amount;
         }
-        // 3. 构建DTO列表并计算比例
+
         List<AssetDistributionDTO> result = new ArrayList<>();
         for (Map.Entry<String, Double> entry : amountMap.entrySet()) {
             AssetDistributionDTO dto = new AssetDistributionDTO();
             dto.setAssetType(entry.getKey());
             dto.setAmount(entry.getValue());
-            // 计算比例（避免除零）
-            double proportion = totalAmount == 0 ? 0 : (entry.getValue() / totalAmount);
+
+            double proportion = totalAmount == 0 ? 0 : entry.getValue() / totalAmount;
             dto.setProportion(proportion);
+
             result.add(dto);
         }
+
         return result;
     }
 
