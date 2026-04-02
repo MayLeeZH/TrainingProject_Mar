@@ -18,6 +18,9 @@
         </div>
       </header>
 
+      <div v-if="showSuccess" class="api-success">Transaction added successfully!</div>
+      <div v-if="showError" class="api-error">{{ showError }}</div>
+
       <div class="summary-cards animate-fade-in delay-1">
         <div class="glass-card summary-card">
           <div class="summary-title">Total Holdings</div>
@@ -71,8 +74,9 @@
               <tr>
                 <th class="col-asset">Asset</th>
                 <th class="col-code">Code</th>
+                <th class="col-type">Type</th>
                 <th class="right col-cost">Avg Price</th>
-                <th class="right col-qty">Quality</th>
+                <th class="right col-qty">Quantity</th>
                 <th class="right col-price">Current Price</th>
                 <th class="right col-value">Total</th>
                 <th class="right col-return">Total Return</th>
@@ -91,6 +95,9 @@
                   </td>
                   <td>
                     <div class="asset-code font-medium">{{ asset.ticker }}</div>
+                  </td>
+                  <td>
+                    <span :class="['type-pill', `pill-${asset.type.toLowerCase()}`]">{{ asset.type }}</span>
                   </td>
                   <td class="right text-muted">{{ asset.cost }}</td>
                   <td class="right">{{ asset.quantity }}</td>
@@ -140,11 +147,14 @@
 import { ref, computed, onMounted } from 'vue';
 import { getHoldings, getUserCashBalance } from '../apis/holdingService.js';
 import { getStockQuote } from '../apis/finnhubService.js';
+import { createTransaction } from '../apis/portfolioApi.js';
 import StockChart from '../components/StockChart.vue';
 import AddTransactionModal from '../components/AddTransactionModal.vue';
 import AppSidebar from '../components/AppSidebar.vue';
 
 const isAddModalOpen = ref(false);
+const showSuccess = ref(false);
+const showError = ref('');
 const expandedRow = ref(null);
 const holdings = ref([]);
 
@@ -277,8 +287,37 @@ onMounted(() => {
   fetchHoldings();
 });
 
-const handleNewTransaction = (txnData) => {
-  console.log('New Transaction submitted from Holdings page:', txnData);
+const getAssetType = (code) => {
+  const c = code.toUpperCase();
+  const cryptoList = ['BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'ADA'];
+  if (cryptoList.some(crypto => c.includes(crypto))) return 'CRYPTO';
+  const fundList = ['VOO', 'SPY', 'QQQ', 'VTI', 'IVV', 'ARKK'];
+  if (fundList.includes(c)) return 'FUND';
+  const bondList = ['BND', 'TLT', 'AGG', 'IEF', 'SHY'];
+  if (bondList.includes(c)) return 'BOND';
+  return 'STOCK';
+};
+
+const handleNewTransaction = async (txnData) => {
+  try {
+    await createTransaction({
+      user: { id: 1 },
+      stockCode: txnData.code,
+      stockName: txnData.name,
+      stockType: getAssetType(txnData.code),
+      transactionType: txnData.type.toUpperCase(),
+      quantity: txnData.quantity,
+      transactionalPrice: txnData.price,
+    });
+    // Refresh holdings so the new position appears immediately
+    await fetchHoldings();
+    await fetchCashBalance();
+    showSuccess.value = true;
+    setTimeout(() => { showSuccess.value = false; }, 3000);
+  } catch (e) {
+    showError.value = e instanceof Error ? e.message : String(e);
+    setTimeout(() => { showError.value = ''; }, 5000);
+  }
 };
 
 const sortKey = ref(null);
@@ -386,6 +425,8 @@ const enrichedHoldings = computed(() => {
 
 /* 鍗＄墖 */
 .glass-card { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: clamp(1.2rem, 2vw, 1.8rem); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); box-sizing: border-box; overflow: hidden; }
+.api-success { color: #30d158; font-size: 0.9rem; margin: 0 0 1rem 0; font-weight: 500; animation: fadeInUp 0.3s ease; }
+.api-error { color: #ff453a; font-size: 0.9rem; margin: 0 0 1rem 0; font-weight: 500; }
 
 /* 琛ㄦ牸鎺у埗锛堟帓搴忔寜閽瓑锛?*/
 .table-controls { display: flex; align-items: center; gap: 0.8rem; padding: 0 0.5rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 1rem; }
@@ -404,7 +445,13 @@ const enrichedHoldings = computed(() => {
 .apple-table th:first-child, .apple-table td:first-child { padding-left: 0; }
 .apple-table th:last-child, .apple-table td:last-child { padding-right: 0; }
 
-.col-asset { width: 16%; } .col-code { width: 12%; } .col-cost { width: 12%; } .col-qty { width: 12%; } .col-price { width: 12%; } .col-value { width: 14%; } .col-return { width: 11%; } .col-daily { width: 11%; }
+.col-asset { width: 14%; } .col-code { width: 10%; } .col-type { width: 9%; } .col-cost { width: 11%; } .col-qty { width: 10%; } .col-price { width: 11%; } .col-value { width: 12%; } .col-return { width: 12%; } .col-daily { width: 11%; }
+.type-pill { padding: 0.25rem 0.7rem; border-radius: 10px; font-size: 0.78rem; font-weight: 600; display: inline-block; white-space: nowrap; }
+.pill-stock { background: rgba(10, 132, 255, 0.15); color: #0a84ff; }
+.pill-crypto { background: rgba(255, 159, 10, 0.15); color: #ff9f0a; }
+.pill-bond { background: rgba(48, 209, 88, 0.15); color: #30d158; }
+.pill-fund { background: rgba(191, 90, 242, 0.15); color: #bf5af2; }
+.pill-unknown { background: rgba(255,255,255,0.08); color: #a1a1a6; }
 
 .apple-table .right { text-align: right; }
 .apple-table .center { text-align: center; }

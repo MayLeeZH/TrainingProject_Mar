@@ -63,6 +63,29 @@ export async function getStockQuote(ticker) {
   }, TTL.QUOTE);
 }
 
+/**
+ * Searches for stock symbols matching a query (by name or ticker code).
+ * Results cached for 30 seconds to avoid hammering the API while typing.
+ * @param {string} query - Search term, e.g. "Apple" or "AAPL"
+ * @returns {Array} Array of { symbol, displaySymbol, description, type }
+ */
+export async function searchSymbol(query) {
+  const cacheKey = `search-${query.toLowerCase().trim()}`;
+  return fetchWithCache(cacheKey, async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(query)}&token=${API_KEY}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      // Only return common stocks & ETFs, limiting to top 6 results
+      const filtered = (data.result || []).filter(r => r.type === 'Common Stock' || r.type === 'ETP');
+      return filtered.slice(0, 6);
+    } catch (error) {
+      console.error(`Error searching for "${query}":`, error);
+      return [];
+    }
+  }, 30 * 1000); // Cache search results for 30 seconds
+}
+
 // 获取过去 N 天的真实历史收盘价
 export const getStockHistoricalData = async (symbol, days = 30) => {
   const cacheKey = `historical-${symbol}-${days}d`;

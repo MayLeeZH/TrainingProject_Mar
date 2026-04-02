@@ -1,3 +1,28 @@
+// --- 模块级内存缓存 ---
+// 只要用户没有刷新页面，缓存就一直生效（与 finnhubService.js 风格一致）
+const _cache = new Map();
+const ALLOCATION_TTL = 5 * 60 * 1000; // Allocation 图缓存 5 分钟
+
+function _getCached(key) {
+  if (!_cache.has(key)) return null;
+  const { data, timestamp } = _cache.get(key);
+  if (Date.now() - timestamp > ALLOCATION_TTL) {
+    _cache.delete(key);
+    return null;
+  }
+  console.log(`[Cache Hit ✅] holdingService: ${key} (expires in ${Math.round((ALLOCATION_TTL - (Date.now() - timestamp)) / 1000)}s)`);
+  return data;
+}
+
+function _setCache(key, data) {
+  _cache.set(key, { data, timestamp: Date.now() });
+}
+
+/** 主动清除某个缓存（例如 add transaction 后让 Allocation 强制刷新） */
+export function invalidateCache(key) {
+  _cache.delete(key);
+}
+
 export async function getHoldings() {
   const response = await fetch('/api/holds')
 
@@ -19,6 +44,13 @@ export async function getHoldings() {
 }
 
 export async function getAssetDistribution(userId = 1) {
+  const cacheKey = `asset-distri-${userId}`;
+
+  // 命中缓存直接返回，不再请求后端
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+
+  console.log(`[Cache Miss ⏳] holdingService: fetching asset distribution for userId=${userId}...`);
   const response = await fetch(`/api/holds/asset-distri/${userId}`);
 
   if (!response.ok) {
@@ -28,6 +60,7 @@ export async function getAssetDistribution(userId = 1) {
   const result = await response.json();
 
   if (result && Array.isArray(result.data)) {
+    _setCache(cacheKey, result.data);
     return result.data;
   }
 

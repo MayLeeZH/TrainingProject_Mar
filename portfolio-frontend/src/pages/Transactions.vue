@@ -71,7 +71,7 @@
               </tr>
               <tr v-for="txn in filteredTransactions" :key="txn.id" class="table-row">
                 <td class="text-muted">{{ txn.time }}</td>
-                <td class="font-medium">{{ txn.name }}</td>
+                <td class="font-medium col-name-cell" :title="txn.name">{{ txn.name }}</td>
                 <td class="code-text">{{ txn.code }}</td>
                 <td class="center">
                   <span :class="['type-pill', txn.type.toLowerCase() === 'buy' ? 'pill-buy' : 'pill-sell']">
@@ -191,9 +191,9 @@ const filteredTransactions = computed(() => {
 });
 
 const handleNewTransaction = async (txnData) => {
-  // 股票名称映射（后续可以从后端或外部配置获取）
+  // 如果 modal 传来了 name，就优先使用；否则看看是否有配置映射，最后兜底
   const nameMap = { AAPL: 'Apple Inc.', NVDA: 'NVIDIA Corp.', VOO: 'Vanguard S&P 500', BTC: 'Bitcoin', TSLA: 'Tesla Inc.' };
-  const txnName = nameMap[txnData.code] || `${txnData.code} Asset`;
+  const txnName = txnData.name || nameMap[txnData.code] || `${txnData.code} Asset`;
 
   const getAssetType = (code) => {
     const c = code.toUpperCase();
@@ -306,7 +306,8 @@ const handleNewTransaction = async (txnData) => {
 /* 表格样式 */
 .table-responsive { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; overflow-y: visible; }
 .apple-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 800px; table-layout: fixed; }
-.col-time { width: 14%; } .col-name { width: 22%; } .col-code { width: 12%; } .col-type { width: 12%; } .col-qty { width: 12%; } .col-price { width: 14%; } .col-total { width: 14%; }
+.col-time { width: 13%; } .col-name { width: 24%; } .col-code { width: 11%; } .col-type { width: 12%; } .col-qty { width: 11%; } .col-price { width: 14%; } .col-total { width: 15%; }
+.col-name-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 0; }
 .apple-table th { color: #a1a1a6; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 1rem 1rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; text-align: left; }
 .apple-table td { padding: 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; white-space: nowrap; text-align: left; }
 .apple-table th:first-child, .apple-table td:first-child { padding-left: 0; } .apple-table th:last-child, .apple-table td:last-child { padding-right: 0; }

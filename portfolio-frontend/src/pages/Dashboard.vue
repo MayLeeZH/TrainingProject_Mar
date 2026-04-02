@@ -22,6 +22,9 @@
         </div>
       </header>
 
+      <div v-if="showSuccess" class="api-success">Transaction added successfully!</div>
+      <div v-if="showError" class="api-error">{{ showError }}</div>
+
       <div class="metrics-grid animate-fade-in delay-2">
          <div class="glass-card metric-card">
            <div class="label text-truncate">Total Assets</div>
@@ -135,14 +138,15 @@
 import { ref, computed, onMounted } from 'vue';
 import { getStockQuote } from '../apis/finnhubService.js';
 import { getHoldings, getAssetDistribution, getUserCashBalance } from '../apis/holdingService.js'
+import { createTransaction } from '../apis/portfolioApi.js';
 import MarketChart from '../components/MarketChart.vue';
 import AllocationChart from '../components/AllocationChart.vue';
 import AppSidebar from '../components/AppSidebar.vue';
-// 引入全局弹窗组件
 import AddTransactionModal from '../components/AddTransactionModal.vue';
 
-// --- 控制弹窗的显示 ---
 const isAddModalOpen = ref(false);
+const showSuccess = ref(false);
+const showError = ref('');
 
 // --- 图表控制状态 ---
 const compareMode = ref(false);
@@ -225,11 +229,36 @@ const mapAssetType = (assetType) => {
   return assetType;
 };
 
-// --- 处理弹窗提交的数据 ---
-const handleNewTransaction = (txnData) => {
-  console.log("New Transaction submitted from Dashboard:", txnData);
-  // 在真实应用中，你可以在这里向后端发送请求，然后重新计算上方的 Total Assets
-  // 目前我们只是在控制台打印，弹窗会自动优雅关闭
+const getAssetType = (code) => {
+  const c = code.toUpperCase();
+  const cryptoList = ['BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'ADA'];
+  if (cryptoList.some(crypto => c.includes(crypto))) return 'CRYPTO';
+  const fundList = ['VOO', 'SPY', 'QQQ', 'VTI', 'IVV', 'ARKK'];
+  if (fundList.includes(c)) return 'FUND';
+  const bondList = ['BND', 'TLT', 'AGG', 'IEF', 'SHY'];
+  if (bondList.includes(c)) return 'BOND';
+  return 'STOCK';
+};
+
+const handleNewTransaction = async (txnData) => {
+  try {
+    await createTransaction({
+      user: { id: defaultUserId },
+      stockCode: txnData.code,
+      stockName: txnData.name,
+      stockType: getAssetType(txnData.code),
+      transactionType: txnData.type.toUpperCase(),
+      quantity: txnData.quantity,
+      transactionalPrice: txnData.price,
+    });
+    await fetchHoldings();
+    await fetchAssetDistribution();
+    showSuccess.value = true;
+    setTimeout(() => { showSuccess.value = false; }, 3000);
+  } catch (e) {
+    showError.value = e instanceof Error ? e.message : String(e);
+    setTimeout(() => { showError.value = ''; }, 5000);
+  }
 };
 
 const fetchHoldings = async () => {
@@ -354,6 +383,8 @@ onMounted(() => {
 
 /* 卡片与网格系统 */
 .glass-card { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: clamp(1.2rem, 2vw, 1.8rem); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); box-sizing: border-box; overflow: hidden; }
+.api-success { color: #30d158; font-size: 0.9rem; margin: 0 0 1rem 0; font-weight: 500; animation: fadeInUp 0.3s ease; }
+.api-error { color: #ff453a; font-size: 0.9rem; margin: 0 0 1rem 0; font-weight: 500; }
 
 .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: clamp(1rem, 2vw, 1.5rem); margin-bottom: clamp(1.5rem, 3vh, 2rem); }
 .metric-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 1.5rem; }
