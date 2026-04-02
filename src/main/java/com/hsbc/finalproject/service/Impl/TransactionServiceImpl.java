@@ -117,6 +117,8 @@ public class TransactionServiceImpl implements TransactionService {
 
             holdingRecord.setQuantity(newQty);
             holdingRecord.setAvgPrice(newAvg);
+            user.setAmount(user.getAmount() - transactionalPrice * quantity);
+            userRepository.save(user);
         } else {
             // 卖出：检查数量是否足够
             double oldQty = holdingRecord.getQuantity();
@@ -133,6 +135,8 @@ public class TransactionServiceImpl implements TransactionService {
             if (newQty == 0) {
                 holdingRecord.setAvgPrice(0.0);
             }
+            user.setAmount(user.getAmount() + transactionalPrice * quantity);
+            userRepository.save(user);
         }
 
         // 7. 保存持仓记录
