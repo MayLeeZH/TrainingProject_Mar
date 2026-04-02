@@ -18,6 +18,9 @@
         <router-link to="/transactions" class="nav-item" active-class="active">
           <span class="text-truncate">Transactions</span>
         </router-link>
+        <router-link to="/ai-chat" class="nav-item" active-class="active">
+          <span class="text-truncate">AI Assistant</span>
+        </router-link>
         <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
       </nav>
 
