@@ -5,8 +5,11 @@ import com.hsbc.finalproject.dto.AssetDistributionDTO;
 import com.hsbc.finalproject.dto.YahooFinanceQuoteResponse;
 import com.hsbc.finalproject.model.HoldingRecord;
 import com.hsbc.finalproject.model.TransactionRecord;
+import com.hsbc.finalproject.model.User;
 import com.hsbc.finalproject.repository.HoldingRecordRepository;
+import com.hsbc.finalproject.repository.UserRepository;
 import com.hsbc.finalproject.service.HoldingRecordService;
+import jakarta.jws.soap.SOAPBinding;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +21,8 @@ public class HoldingRecordServiceImpl implements HoldingRecordService {
     HoldingRecordRepository recordRepository;
     @Autowired
     YahooFinanceServiceImpl yahooFinanceServiceImpl;
+    @Autowired
+    UserRepository userRepository;
 
     @Override
     public List<HoldingRecordListDTO> listHoldingRecordDtos() {
@@ -66,30 +71,40 @@ public class HoldingRecordServiceImpl implements HoldingRecordService {
     @Override
     public List<AssetDistributionDTO> getAssetDistribution(Long id) {
         List<HoldingRecord> holdings = recordRepository.findByUser_Id(id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
 
         Map<String, Double> amountMap = new HashMap<>();
         double totalAmount = 0.0;
 
         for (HoldingRecord record : holdings) {
+            // 跳过现金类型的持仓记录（如果数据库中还存有的话）
+            if ("CASH".equalsIgnoreCase(record.getAssetType())) {
+                continue;
+            }
+
             String type = record.getAssetType();
             double amount = 0.0;
 
             try {
-                if ("CASH".equals(type)) {
-                    amount = record.getQuantity();
-                } else {
-                    YahooFinanceQuoteResponse ret =
-                            yahooFinanceServiceImpl.getQuoteBySymbol(record.getAssetCode());
-                    double currentPrice = ret.regularMarketPrice();
-                    amount = record.getQuantity() * currentPrice;
-                }
+                // 调用外部API获取当前价格
+                YahooFinanceQuoteResponse ret =
+                        yahooFinanceServiceImpl.getQuoteBySymbol(record.getAssetCode());
+                double currentPrice = ret.regularMarketPrice();
+                amount = record.getQuantity() * currentPrice;
             } catch (Exception e) {
-                // 行情查不到时，用持仓成本价兜底，避免整个接口失败
+                // 行情查不到时，用持仓成本价兜底
                 amount = record.getQuantity() * record.getAvgPrice();
             }
 
             amountMap.merge(type, amount, Double::sum);
             totalAmount += amount;
+        }
+
+        double cashAmount = user.getAmount();
+        if (cashAmount > 0) {
+            amountMap.merge("CASH", cashAmount, Double::sum);
+            totalAmount += cashAmount;
         }
 
         List<AssetDistributionDTO> result = new ArrayList<>();
