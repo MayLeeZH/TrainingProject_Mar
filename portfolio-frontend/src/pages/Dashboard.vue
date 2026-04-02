@@ -9,7 +9,7 @@
       </div>
 
       <nav class="nav-menu">
-        <router-link to="/" class="nav-item" active-class="active" exact>
+        <router-link to="/dashboard" class="nav-item" active-class="active">
           <span class="text-truncate">Dashboard</span>
         </router-link>
         
@@ -50,15 +50,24 @@
       <div class="metrics-grid animate-fade-in delay-2">
          <div class="glass-card metric-card">
            <div class="label text-truncate">Total Assets</div>
-           <div class="value text-truncate">$3,248,500.00</div>
+           <div class="value text-truncate">{{ usdFormatter.format(totalAssets) }}</div>
          </div>
-         <div class="glass-card metric-card">
-           <div class="label text-truncate">Today's P&L</div>
-           <div class="value-wrapper">
-             <div class="value positive text-truncate">+$15,240.00</div>
-             <span class="badge">+0.66%</span>
-           </div>
-         </div>
+
+
+        <div class="glass-card metric-card">
+          <div class="label text-truncate">Today's P&L</div>
+          <div class="value-wrapper">
+            <div
+              class="value text-truncate"
+              :class="todaysPnl >= 0 ? 'positive' : 'text-red'"
+            >
+              {{ todaysPnl >= 0 ? '+' : '-' }}{{ usdFormatter.format(Math.abs(todaysPnl)) }}
+            </div>
+            <span class="badge" :class="{ negative: todaysPnlRate < 0 }">
+              {{ todaysPnlRate >= 0 ? '+' : '' }}{{ todaysPnlRate.toFixed(2) }}%
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="charts-grid animate-fade-in delay-3">
@@ -90,7 +99,7 @@
             <h3 class="text-truncate">Allocation</h3>
           </div>
           <div class="real-chart-container">
-            <AllocationChart />
+            <AllocationChart :allocation-data="allocationChartData" />
           </div>
         </div>
       </div>
@@ -148,9 +157,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { getStockQuote } from '../apis/finnhubService.js';
-import { getHoldings } from '../apis/holdingService.js'
+import { getHoldings, getAssetDistribution } from '../apis/holdingService.js'
 import MarketChart from '../components/MarketChart.vue';
 import AllocationChart from '../components/AllocationChart.vue';
 // 引入全局弹窗组件
@@ -164,24 +173,81 @@ const compareMode = ref(false);
 const timeframe = ref('1M');
 
 const holdings = ref([])
+const assetDistribution = ref([]);
+const defaultUserId = 1;
+const cashBalance = ref(0);
+
 
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD'
 })
 
+// --- 处理资产分布数据，转换成饼状图组件需要的格式 --- 
+const allocationChartData = computed(() => {
+  return assetDistribution.value.map((item) => ({
+    name: mapAssetType(item.assetType),
+    value: Number(item.amount || 0),
+    proportion: Number(item.proportion || 0)
+  }));
+});
+
+const fetchAssetDistribution = async () => {
+  try {
+    const data = await getAssetDistribution(defaultUserId);
+    assetDistribution.value = data;
+  } catch (error) {
+    console.error('Failed to fetch asset distribution:', error);
+    assetDistribution.value = [];
+  }
+};
+
+
+// --- 计算总资产（持仓市值 + 现金余额） ---
+const totalAssets = computed(() => {
+  const holdingsTotal = holdings.value.reduce((sum, item) => {
+    const avgPrice = Number(item.costPrice || 0);
+    const quantity = Number(item.quantity || 0);
+    return sum + avgPrice * quantity;
+  }, 0);
+    return holdingsTotal + Number(cashBalance.value || 0);
+});
+
+
+/*
+  Today's P&L = totalAssets - 所有持仓的昨日收盘价 * quantity 之和
+*/
+const yesterdayHoldingsTotal = computed(() => {
+  return holdings.value.reduce((sum, item) => {
+    const previousClose = Number(item.previousClose || 0);
+    const quantity = Number(item.quantity || 0);
+    return sum + previousClose * quantity;
+  }, 0);
+});
+
+const todaysPnl = computed(() => {
+  return totalAssets.value - yesterdayHoldingsTotal.value;
+});
+
+const todaysPnlRate = computed(() => {
+  if (yesterdayHoldingsTotal.value === 0) return 0;
+  return (todaysPnl.value / yesterdayHoldingsTotal.value) * 100;
+});
+
+
 const mapAssetType = (assetType) => {
-  if (!assetType) return 'Unknown'
+  if (!assetType) return 'Unknown';
 
-  const value = assetType.toUpperCase()
+  const value = String(assetType).toUpperCase();
 
-  if (value === 'STOCK') return 'Stock'
-  if (value === 'CRYPTO') return 'Crypto'
-  if (value === 'BOND') return 'Bond'
+  if (value === 'STOCK') return 'Stock';
+  if (value === 'CRYPTO') return 'Crypto';
+  if (value === 'BOND') return 'Bond';
+  if (value === 'FUND') return 'Fund';
+  if (value === 'CASH') return 'Cash';
 
-  return assetType
-}
-
+  return assetType;
+};
 
 // --- 处理弹窗提交的数据 ---
 const handleNewTransaction = (txnData) => {
@@ -231,6 +297,14 @@ const fetchLiveHoldingsData = async () => {
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2)); 
       }
+      /*
+        Finnhub quote:
+        c = current price
+        pc = previous close
+      */
+      if (Number.isFinite(data.pc)) {
+          asset.previousClose = data.pc;
+      }
     } catch (error) {
       console.error(`Failed to fetch live data for ${asset.ticker}:`, error);
       asset.price = 'Error';
@@ -239,7 +313,8 @@ const fetchLiveHoldingsData = async () => {
 };
 
 onMounted(() => {
-  fetchHoldings()
+  fetchHoldings();
+  fetchAssetDistribution();
 });
 </script>
 
@@ -299,7 +374,7 @@ onMounted(() => {
 .value-wrapper { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
 .value.positive { color: #30d158; }
 .badge { background: rgba(48, 209, 88, 0.2); color: #30d158; padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; }
-
+.badge.negative { background: rgba(255, 69, 58, 0.2); color: #ff453a;}
 .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: clamp(1rem, 2vw, 1.5rem); margin-bottom: clamp(1.5rem, 3vh, 2rem); }
 @media (max-width: 1024px) { .charts-grid { grid-template-columns: 1fr; } }
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
