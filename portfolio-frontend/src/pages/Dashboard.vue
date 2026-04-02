@@ -3,35 +3,7 @@
     <div class="ambient-bg blob-1"></div>
     <div class="ambient-bg blob-2"></div>
 
-    <aside class="glass-sidebar animate-fade-in">
-      <div class="brand">
-        <h2 class="brand-title">PRO-GRAM</h2>
-      </div>
-
-      <nav class="nav-menu">
-        <router-link to="/dashboard" class="nav-item" active-class="active">
-          <span class="text-truncate">Dashboard</span>
-        </router-link>
-        
-        <router-link to="/holdings" class="nav-item" active-class="active">
-          <span class="text-truncate">Holdings</span>
-        </router-link>
-        
-        <router-link to="/transactions" class="nav-item" active-class="active">
-          <span class="text-truncate">Transactions</span>
-        </router-link>
-        
-        <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
-      </nav>
-
-      <div class="user-profile">
-        <img src="https://ui-avatars.com/api/?name=William+Zhang&background=ffffff&color=000000" alt="Avatar" class="avatar" />
-        <div class="user-info text-truncate">
-          <div class="name text-truncate">William Zhang</div>
-          <div class="type text-truncate">VIP Client</div>
-        </div>
-      </div>
-    </aside>
+    <AppSidebar />
 
     <main class="main-content">
       
@@ -41,6 +13,9 @@
           <p class="datetime text-truncate">Tuesday, March 31</p>
         </div>
         <div class="header-actions">
+          <button class="apple-btn btn-secondary" @click="$router.push('/ai-chat')">
+            Open AI Assistant
+          </button>
           <button class="apple-btn btn-primary global-add-btn" @click="isAddModalOpen = true">
             + Add Transaction
           </button>
@@ -162,6 +137,7 @@ import { getStockQuote } from '../apis/finnhubService.js';
 import { getHoldings, getAssetDistribution } from '../apis/holdingService.js'
 import MarketChart from '../components/MarketChart.vue';
 import AllocationChart from '../components/AllocationChart.vue';
+import AppSidebar from '../components/AppSidebar.vue';
 // 引入全局弹窗组件
 import AddTransactionModal from '../components/AddTransactionModal.vue';
 
@@ -352,7 +328,7 @@ onMounted(() => {
 .page-title { font-size: clamp(2rem, 3vw, 2.5rem); font-weight: 700; margin: 0; letter-spacing: -1px; }
 .datetime { color: #a1a1a6; font-size: clamp(0.9rem, 1.2vw, 1.1rem); margin: 0.5rem 0 0 0; font-weight: 500; }
 .header-actions { display: flex; align-items: center; }
-
+.btn-secondary { background: rgba(255, 255, 255, 0.08); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.12); padding: 0 1.2rem; height: 42px; }
 /* 全局统一的 Add 按钮尺寸 */
 .global-add-btn { height: 42px; padding: 0 1.5rem; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
 
