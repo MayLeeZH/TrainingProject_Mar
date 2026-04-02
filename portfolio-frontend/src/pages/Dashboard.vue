@@ -134,7 +134,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { getStockQuote } from '../apis/finnhubService.js';
-import { getHoldings, getAssetDistribution } from '../apis/holdingService.js'
+import { getHoldings, getAssetDistribution, getUserCashBalance } from '../apis/holdingService.js'
 import MarketChart from '../components/MarketChart.vue';
 import AllocationChart from '../components/AllocationChart.vue';
 import AppSidebar from '../components/AppSidebar.vue';
@@ -182,9 +182,9 @@ const fetchAssetDistribution = async () => {
 // --- 计算总资产（持仓市值 + 现金余额） ---
 const totalAssets = computed(() => {
   const holdingsTotal = holdings.value.reduce((sum, item) => {
-    const avgPrice = Number(item.costPrice || 0);
-    const quantity = Number(item.quantity || 0);
-    return sum + avgPrice * quantity;
+    // 优先使用最新市价(rawMarketValue)，如果暂未获取到则使用成本价兜底
+    const marketVal = Number(item.rawMarketValue || 0);
+    return sum + marketVal;
   }, 0);
     return holdingsTotal + Number(cashBalance.value || 0);
 });
@@ -246,6 +246,7 @@ const fetchHoldings = async () => {
       costPrice: item.avgPrice,
       price: 'Loading...',
       marketValue: '--',
+      rawMarketValue: item.avgPrice * item.quantity,
       pnl: 0
     }))
 
@@ -269,6 +270,7 @@ const fetchLiveHoldingsData = async () => {
         asset.price = usdFormatter.format(livePrice);
         const liveMarketValue = livePrice * asset.quantity;
         asset.marketValue = usdFormatter.format(liveMarketValue);
+        asset.rawMarketValue = liveMarketValue;
 
         const returnPct = ((livePrice - asset.costPrice) / asset.costPrice) * 100;
         asset.pnl = parseFloat(returnPct.toFixed(2)); 
@@ -288,7 +290,17 @@ const fetchLiveHoldingsData = async () => {
   }
 };
 
+const fetchCashBalance = async () => {
+  try {
+    const amount = await getUserCashBalance(defaultUserId);
+    cashBalance.value = amount;
+  } catch (error) {
+    console.error('Failed to fetch cash balance:', error);
+  }
+};
+
 onMounted(() => {
+  fetchCashBalance();
   fetchHoldings();
   fetchAssetDistribution();
 });

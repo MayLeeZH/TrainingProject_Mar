@@ -4,6 +4,7 @@
     <div class="ambient-bg blob-2"></div>
 
     <AppSidebar />
+
     <main class="main-content">
       
       <header class="top-header animate-fade-in delay-1">
@@ -37,7 +38,12 @@
           <table class="apple-table">
             <thead>
               <tr>
-                <th class="col-time">Time</th>
+                <th class="col-time">
+                  <div class="filter-trigger" @click="sortTimeDesc = !sortTimeDesc" style="justify-content: flex-start; padding: 0;">
+                    Time
+                    <span class="chevron" :class="{ 'chevron-up': !sortTimeDesc }">▼</span>
+                  </div>
+                </th>
                 <th class="col-name">Name</th>
                 <th class="col-code">Code</th>
                 <th class="center col-type">
@@ -100,6 +106,7 @@ const searchQuery = ref('');
 const filterType = ref('All');
 const isDropdownOpen = ref(false);
 const isAddModalOpen = ref(false);
+const sortTimeDesc = ref(true); // Default to Latest First
 
 /** 当前登录用户 id，与后端 GET /transactions/users/{userId} 一致；可在 .env 里配置 VITE_DEFAULT_USER_ID */
 const defaultUserId = Number(import.meta.env.VITE_DEFAULT_USER_ID) || 1;
@@ -120,15 +127,20 @@ function mapBackendRow(row) {
   const price = row.transactionalPrice ?? 0;
   const total = qty * price;
   let timeStr = '';
+  let rawTime = 0;
   if (row.time) {
     const d = new Date(row.time);
-    timeStr = Number.isNaN(d.getTime())
-      ? String(row.time)
-      : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    if (!Number.isNaN(d.getTime())) {
+      rawTime = d.getTime();
+      timeStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    } else {
+      timeStr = String(row.time);
+    }
   }
   return {
     id: row.id,
     time: timeStr,
+    rawTime: rawTime || row.id,
     // 优先用自己的字段，回退到关联持仓
     name: row.stockName || holding.assetName || '—',
     code: row.stockCode || holding.assetCode || '—',
@@ -162,7 +174,7 @@ const closeDropdown = () => { if (isDropdownOpen.value) isDropdownOpen.value = f
 const setFilter = (type) => { filterType.value = type; isDropdownOpen.value = false; };
 
 const filteredTransactions = computed(() => {
-  let result = transactions.value;
+  let result = [...transactions.value];
   if (filterType.value !== 'All') result = result.filter(txn => txn.type === filterType.value);
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
@@ -170,6 +182,11 @@ const filteredTransactions = computed(() => {
       String(txn.name).toLowerCase().includes(query) || String(txn.code).toLowerCase().includes(query)
     );
   }
+  
+  result.sort((a, b) => {
+    return sortTimeDesc.value ? b.rawTime - a.rawTime : a.rawTime - b.rawTime;
+  });
+  
   return result;
 });
 
@@ -178,13 +195,27 @@ const handleNewTransaction = async (txnData) => {
   const nameMap = { AAPL: 'Apple Inc.', NVDA: 'NVIDIA Corp.', VOO: 'Vanguard S&P 500', BTC: 'Bitcoin', TSLA: 'Tesla Inc.' };
   const txnName = nameMap[txnData.code] || `${txnData.code} Asset`;
 
+  const getAssetType = (code) => {
+    const c = code.toUpperCase();
+    const cryptoList = ['BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'ADA'];
+    if (cryptoList.some(crypto => c.includes(crypto))) return 'CRYPTO';
+    
+    const fundList = ['VOO', 'SPY', 'QQQ', 'VTI', 'IVV', 'ARKK'];
+    if (fundList.includes(c)) return 'FUND';
+    
+    const bondList = ['BND', 'TLT', 'AGG', 'IEF', 'SHY'];
+    if (bondList.includes(c)) return 'BOND';
+    
+    return 'STOCK';
+  };
+
   try {
     // 调用后端 API 创建交易
     await createTransaction({
       user: { id: defaultUserId },
       stockCode: txnData.code,
       stockName: txnName,
-      stockType: 'STOCK',
+      stockType: getAssetType(txnData.code),
       transactionType: txnData.type.toUpperCase(),
       quantity: txnData.quantity,
       transactionalPrice: txnData.price,

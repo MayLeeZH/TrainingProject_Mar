@@ -138,7 +138,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { getHoldings } from '../apis/holdingService.js';
+import { getHoldings, getUserCashBalance } from '../apis/holdingService.js';
 import { getStockQuote } from '../apis/finnhubService.js';
 import StockChart from '../components/StockChart.vue';
 import AddTransactionModal from '../components/AddTransactionModal.vue';
@@ -149,7 +149,7 @@ const expandedRow = ref(null);
 const holdings = ref([]);
 
 // TODO: 这个应该灵活变动的，受到买入卖出影响
-const cashBalance = ref(50000.0);
+const cashBalance = ref(0);
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const numFormatter = new Intl.NumberFormat('en-US');
@@ -263,7 +263,17 @@ const fetchHoldings = async () => {
   }
 };
 
+const fetchCashBalance = async () => {
+  try {
+    const amount = await getUserCashBalance();
+    cashBalance.value = amount;
+  } catch (error) {
+    console.error('Failed to fetch cash balance:', error);
+  }
+};
+
 onMounted(() => {
+  fetchCashBalance();
   fetchHoldings();
 });
 

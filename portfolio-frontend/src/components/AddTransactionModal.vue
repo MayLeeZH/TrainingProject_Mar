@@ -38,9 +38,13 @@
         </div>
       </div>
 
+      <p v-if="validationError" class="validation-error">{{ validationError }}</p>
+
       <div class="modal-footer">
-        <button class="apple-btn btn-secondary" @click="closeModal">Cancel</button>
-        <button class="apple-btn btn-primary" @click="submit" :disabled="!isFormValid">Confirm</button>
+        <button class="apple-btn btn-secondary" @click="closeModal" :disabled="isSubmitting">Cancel</button>
+        <button class="apple-btn btn-primary" @click="submit" :disabled="!isFormValid || isSubmitting">
+          {{ isSubmitting ? 'Validating...' : 'Confirm' }}
+        </button>
       </div>
 
     </div>
@@ -49,6 +53,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { getStockQuote } from '../apis/finnhubService.js';
 
 // 接收父组件传来的 v-model (用于控制显示隐藏)
 const props = defineProps({
@@ -59,6 +64,8 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'submit']);
 
 const newTxn = ref({ type: 'Buy', code: '', quantity: '', price: '' });
+const validationError = ref('');
+const isSubmitting = ref(false);
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 const calculatedTotal = computed(() => {
@@ -74,11 +81,33 @@ const isFormValid = computed(() => {
 const closeModal = () => {
   emit('update:modelValue', false);
   // 延迟清空表单，等待动画结束
-  setTimeout(() => { newTxn.value = { type: 'Buy', code: '', quantity: '', price: '' }; }, 300);
+  setTimeout(() => { 
+    newTxn.value = { type: 'Buy', code: '', quantity: '', price: '' }; 
+    validationError.value = '';
+    isSubmitting.value = false;
+  }, 300);
 };
 
-const submit = () => {
+const submit = async () => {
   if (!isFormValid.value) return;
+  
+  validationError.value = '';
+  isSubmitting.value = true;
+  
+  const code = newTxn.value.code.toUpperCase().trim();
+  
+  try {
+    const data = await getStockQuote(code);
+    if (!data || typeof data.c !== 'number' || data.c === 0) {
+      validationError.value = `Add failure: The asset code '${code}' does not exist.`;
+      isSubmitting.value = false;
+      return;
+    }
+  } catch (err) {
+    validationError.value = `Add failure: The asset code '${code}' does not exist.`;
+    isSubmitting.value = false;
+    return;
+  }
   
   const qty = parseFloat(newTxn.value.quantity);
   const prc = parseFloat(newTxn.value.price);
@@ -86,12 +115,13 @@ const submit = () => {
   // 将整理好的数据发送给所在页面
   emit('submit', {
     type: newTxn.value.type,
-    code: newTxn.value.code.toUpperCase().trim(),
+    code: code,
     quantity: qty,
     price: prc,
     total: qty * prc
   });
   
+  isSubmitting.value = false;
   closeModal();
 };
 </script>
@@ -130,4 +160,5 @@ const submit = () => {
 .animate-bounce-in { animation: elasticDrop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 @keyframes fadeInFast { from { opacity: 0; } to { opacity: 1; } }
 .animate-fade-in-fast { animation: fadeInFast 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.validation-error { color: #ff453a; font-size: 0.9rem; padding: 0.5rem; text-align: center; margin: 0; font-weight: 500; }
 </style>
