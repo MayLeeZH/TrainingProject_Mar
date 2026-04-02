@@ -3,36 +3,7 @@
     <div class="ambient-bg blob-1"></div>
     <div class="ambient-bg blob-2"></div>
 
-    <aside class="glass-sidebar animate-fade-in">
-      <div class="brand">
-        <h2 class="brand-title">PRO-GRAM</h2>
-      </div>
-
-      <nav class="nav-menu">
-        <router-link to="/dashboard" class="nav-item" active-class="active">
-          <span class="text-truncate">Dashboard</span>
-        </router-link>
-        <router-link to="/holdings" class="nav-item" active-class="active">
-          <span class="text-truncate">Holdings</span>
-        </router-link>
-        <router-link to="/transactions" class="nav-item" active-class="active">
-          <span class="text-truncate">Transactions</span>
-        </router-link>
-        <router-link to="/ai-chat" class="nav-item" active-class="active">
-          <span class="text-truncate">AI Assistant</span>
-        </router-link>
-        <a href="#" class="nav-item"><span class="text-truncate">Reports</span></a>
-      </nav>
-
-      <div class="user-profile">
-        <img src="https://ui-avatars.com/api/?name=William+Zhang&background=ffffff&color=000000" alt="Avatar" class="avatar" />
-        <div class="user-info text-truncate">
-          <div class="name text-truncate">William Zhang</div>
-          <div class="type text-truncate">VIP Client</div>
-        </div>
-      </div>
-    </aside>
-
+    <AppSidebar />
     <main class="main-content">
       
       <header class="top-header animate-fade-in delay-1">
@@ -123,6 +94,7 @@
 import { ref, computed, onMounted } from 'vue';
 import AddTransactionModal from '../components/AddTransactionModal.vue';
 import { fetchTransactionsByUser, createTransaction } from '../apis/portfolioApi.js';
+import AppSidebar from '../components/AppSidebar.vue';
 
 const searchQuery = ref('');
 const filterType = ref('All');
