@@ -21,8 +21,8 @@
 
       <div class="glass-card table-card animate-fade-in delay-2">
         <p v-if="loadError" class="api-error">{{ loadError }}</p>
-        <p v-else-if="loading" class="api-loading">加载中…</p>
-        <div v-if="showSuccess" class="api-success">交易添加成功！</div>
+        <p v-else-if="loading" class="api-loading">Loading…</p>
+        <div v-if="showSuccess" class="api-success">Transaction added successfully!</div>
         <div v-if="showError" class="api-error"> {{ showError }} </div>
         <div class="card-toolbar">
           <div class="search-box">
